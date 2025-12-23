@@ -5,9 +5,17 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import io
+import tempfile
+import os
+import geopandas as gpd
+from shapely.geometry import Polygon, Point
+import folium
+from folium import plugins
+from streamlit_folium import st_folium
+import zipfile
 
 # ============================================================================
-# CONFIGURACIÓN DE LA PÁGINA - CON PREVENCIÓN DE ERRORES
+# CONFIGURACIÓN DE LA PÁGINA
 # ============================================================================
 st.set_page_config(
     page_title="🌴 Analizador Cultivos Digital Twin",
@@ -23,17 +31,15 @@ st.markdown(
 )
 
 # ============================================================================
-# CSS SIMPLIFICADO - SIN EFECTOS COMPLEJOS QUE CAUSAN ERRORES
+# CSS SIMPLIFICADO
 # ============================================================================
 st.markdown("""
 <style>
-    /* ESTILOS BÁSICOS Y SEGUROS */
     .stApp {
         background-color: #f8f9fa;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     
-    /* HEADER SIMPLIFICADO */
     .main-header {
         background: linear-gradient(90deg, #2E7D32 0%, #388E3C 100%);
         padding: 1.5rem 2rem;
@@ -43,7 +49,6 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
     }
     
-    /* TARJETAS SEGURAS - SIN HOVER COMPLEJO */
     .metric-card {
         background: white;
         border-radius: 10px;
@@ -70,7 +75,6 @@ st.markdown("""
         line-height: 1.2;
     }
     
-    /* BOTONES ESTABLES */
     .stButton > button {
         background-color: #2E7D32;
         color: white;
@@ -80,33 +84,230 @@ st.markdown("""
         font-weight: 600;
         font-size: 1rem;
         width: 100%;
-        transition: background-color 0.2s ease;
     }
     
     .stButton > button:hover {
         background-color: #1B5E20;
     }
     
-    /* MEJORAS PARA TABS */
-    div[data-testid="stTabs"] {
-        background-color: white;
-        border-radius: 10px;
-        padding: 0.5rem;
-        margin-bottom: 1.5rem;
-    }
-    
-    /* SIDEBAR ESTABLE */
-    section[data-testid="stSidebar"] {
-        background-color: white;
-    }
-    
-    /* REMOVER EFECTOS PROBLEMÁTICOS */
-    * {
-        transition: none !important;
-        animation: none !important;
+    .uploaded-file-info {
+        background: #e8f5e9;
+        padding: 10px;
+        border-radius: 8px;
+        margin: 10px 0;
+        border-left: 4px solid #4CAF50;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# ============================================================================
+# FUNCIONES PARA MANEJO DE ARCHIVOS KML
+# ============================================================================
+def procesar_archivo_kml(uploaded_file):
+    """Procesa un archivo KML y retorna un GeoDataFrame."""
+    try:
+        # Crear un archivo temporal
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.kml') as tmp_file:
+            tmp_file.write(uploaded_file.getvalue())
+            tmp_path = tmp_file.name
+        
+        # Leer el archivo KML
+        gdf = gpd.read_file(tmp_path, driver='KML')
+        
+        # Limpiar el archivo temporal
+        os.unlink(tmp_path)
+        
+        # Validar que tenga geometrías
+        if gdf.empty:
+            st.error("El archivo KML no contiene geometrías válidas.")
+            return None
+        
+        # Asegurar CRS
+        if gdf.crs is None:
+            gdf.set_crs(epsg=4326, inplace=True)
+        else:
+            gdf = gdf.to_crs(epsg=4326)
+        
+        # Validar geometrías
+        gdf = gdf[gdf.is_valid]
+        
+        if gdf.empty:
+            st.error("No se encontraron geometrías válidas en el archivo.")
+            return None
+        
+        # Calcular área en hectáreas
+        gdf_proj = gdf.to_crs(epsg=3857)  # Proyección para cálculo de área
+        gdf['area_ha'] = gdf_proj.geometry.area / 10000
+        
+        return gdf
+    
+    except Exception as e:
+        st.error(f"Error procesando el archivo KML: {str(e)}")
+        return None
+
+def crear_mapa_esri(gdf):
+    """Crea un mapa interactivo con Esri Satellite como capa base."""
+    if gdf is None or gdf.empty:
+        return None
+    
+    try:
+        # Obtener el centroide del polígono
+        centroide = gdf.geometry.unary_union.centroid
+        
+        # Crear mapa con Esri Satellite
+        m = folium.Map(
+            location=[centroide.y, centroide.x],
+            zoom_start=14,
+            control_scale=True,
+            tiles=None  # Desactivar tiles por defecto
+        )
+        
+        # Añadir capa base de Esri Satellite
+        esri_satellite = folium.TileLayer(
+            tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            attr='Esri',
+            name='Esri Satellite',
+            overlay=False,
+            control=True
+        ).add_to(m)
+        
+        # Añadir otras capas base opcionales
+        esri_streets = folium.TileLayer(
+            tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+            attr='Esri',
+            name='Esri Streets',
+            overlay=False,
+            control=True
+        ).add_to(m)
+        
+        open_street_map = folium.TileLayer(
+            tiles='OpenStreetMap',
+            name='OpenStreetMap',
+            overlay=False,
+            control=True
+        ).add_to(m)
+        
+        # Añadir el polígono al mapa
+        for idx, row in gdf.iterrows():
+            # Estilo del polígono
+            folium.GeoJson(
+                row.geometry.__geo_interface__,
+                name=f'Polígono {idx + 1}',
+                style_function=lambda x: {
+                    'fillColor': '#2E7D32',
+                    'color': '#1B5E20',
+                    'weight': 3,
+                    'fillOpacity': 0.3,
+                    'opacity': 0.8
+                },
+                tooltip=f"Área: {row.get('area_ha', 0):.2f} ha",
+                popup=folium.Popup(
+                    f"<b>Polígono {idx + 1}</b><br>"
+                    f"Área: {row.get('area_ha', 0):.2f} ha<br>"
+                    f"Tipo: {row.geometry.geom_type}",
+                    max_width=300
+                )
+            ).add_to(m)
+            
+            # Añadir marcador en el centroide
+            folium.Marker(
+                [centroide.y, centroide.x],
+                popup=f"Centroide<br>Lat: {centroide.y:.6f}<br>Lon: {centroide.x:.6f}",
+                icon=folium.Icon(color='red', icon='info-sign')
+            ).add_to(m)
+        
+        # Añadir control de capas
+        folium.LayerControl().add_to(m)
+        
+        # Añadir minimapa
+        minimap = plugins.MiniMap()
+        m.add_child(minimap)
+        
+        # Añadir botón de pantalla completa
+        plugins.Fullscreen().add_to(m)
+        
+        # Ajustar límites del mapa al polígono
+        bounds = [[gdf.total_bounds[1], gdf.total_bounds[0]], 
+                  [gdf.total_bounds[3], gdf.total_bounds[2]]]
+        m.fit_bounds(bounds)
+        
+        return m
+    
+    except Exception as e:
+        st.error(f"Error creando el mapa: {str(e)}")
+        return None
+
+def generar_zonas_desde_poligono(gdf, n_zonas=12):
+    """Genera zonas de análisis dentro del polígono cargado."""
+    if gdf is None or gdf.empty:
+        return None
+    
+    try:
+        # Tomar el primer polígono (puedes modificar para múltiples polígonos)
+        poligono_principal = gdf.iloc[0].geometry
+        
+        # Crear una cuadrícula dentro del polígono
+        bounds = poligono_principal.bounds
+        minx, miny, maxx, maxy = bounds
+        
+        # Determinar número de filas y columnas
+        n_cols = int(np.sqrt(n_zonas))
+        n_rows = int(np.ceil(n_zonas / n_cols))
+        
+        # Tamaño de celda
+        cell_width = (maxx - minx) / n_cols
+        cell_height = (maxy - miny) / n_rows
+        
+        zonas = []
+        
+        for i in range(n_rows):
+            for j in range(n_cols):
+                # Crear celda rectangular
+                cell_minx = minx + (j * cell_width)
+                cell_maxx = minx + ((j + 1) * cell_width)
+                cell_miny = miny + (i * cell_height)
+                cell_maxy = miny + ((i + 1) * cell_height)
+                
+                cell_poly = Polygon([
+                    (cell_minx, cell_miny),
+                    (cell_maxx, cell_miny),
+                    (cell_maxx, cell_maxy),
+                    (cell_minx, cell_maxy)
+                ])
+                
+                # Intersectar con el polígono principal
+                intersection = poligono_principal.intersection(cell_poly)
+                
+                if not intersection.is_empty and intersection.area > 0:
+                    # Calcular centroide para la zona
+                    if intersection.geom_type == 'MultiPolygon':
+                        # Tomar el polígono más grande
+                        largest = max(intersection.geoms, key=lambda p: p.area)
+                        centroid = largest.centroid
+                    else:
+                        centroid = intersection.centroid
+                    
+                    zonas.append({
+                        'id_zona': len(zonas) + 1,
+                        'geometry': intersection,
+                        'centroid_lat': centroid.y,
+                        'centroid_lon': centroid.x,
+                        'area_ha': intersection.area * 11100 * 11100 * np.cos(np.radians(centroid.y)) / 10000  # Aproximación
+                    })
+                
+                if len(zonas) >= n_zonas:
+                    break
+            if len(zonas) >= n_zonas:
+                break
+        
+        # Crear GeoDataFrame con las zonas
+        zonas_gdf = gpd.GeoDataFrame(zonas, geometry='geometry', crs='EPSG:4326')
+        
+        return zonas_gdf
+    
+    except Exception as e:
+        st.error(f"Error generando zonas: {str(e)}")
+        return None
 
 # ============================================================================
 # DATOS DE CONFIGURACIÓN
@@ -153,21 +354,38 @@ def crear_tarjeta_metrica(titulo: str, valor: str, unidad: str = "", color: str 
     </div>
     """
 
-def generar_datos_muestra(cultivo: str, n_zonas: int = 16):
+def generar_datos_muestra(cultivo: str, n_zonas: int = 16, zonas_gdf=None):
     """Genera datos de muestra para análisis."""
     np.random.seed(42)
     params = CULTIVOS.get(cultivo, CULTIVOS['PALMA ACEITERA'])
     
-    datos = {
-        'id_zona': list(range(1, n_zonas + 1)),
-        'area_ha': np.random.uniform(5, 20, n_zonas).round(2),
+    if zonas_gdf is not None and not zonas_gdf.empty:
+        # Usar las zonas reales del polígono
+        n_zonas = min(n_zonas, len(zonas_gdf))
+        datos = {
+            'id_zona': zonas_gdf['id_zona'].head(n_zonas).tolist(),
+            'area_ha': zonas_gdf['area_ha'].head(n_zonas).round(2).tolist(),
+            'centroid_lat': zonas_gdf['centroid_lat'].head(n_zonas).tolist(),
+            'centroid_lon': zonas_gdf['centroid_lon'].head(n_zonas).tolist()
+        }
+    else:
+        # Datos simulados
+        datos = {
+            'id_zona': list(range(1, n_zonas + 1)),
+            'area_ha': np.random.uniform(5, 20, n_zonas).round(2),
+            'centroid_lat': np.random.uniform(4.0, 4.5, n_zonas),
+            'centroid_lon': np.random.uniform(-75.0, -74.5, n_zonas)
+        }
+    
+    # Datos de suelo y nutrientes (simulados)
+    datos.update({
         'nitrogeno': np.random.normal(params['nitrogeno_optimo'], params['nitrogeno_optimo'] * 0.15, n_zonas).clip(0),
         'fosforo': np.random.normal(params['fosforo_optimo'], params['fosforo_optimo'] * 0.15, n_zonas).clip(0),
         'potasio': np.random.normal(params['potasio_optimo'], params['potasio_optimo'] * 0.15, n_zonas).clip(0),
         'ph': np.random.normal(params['ph_optimo'], 0.4, n_zonas).clip(4.5, 7.5),
         'materia_organica': np.random.uniform(2.0, 4.5, n_zonas),
         'ndvi': np.random.uniform(0.5, 0.85, n_zonas)
-    }
+    })
     
     df = pd.DataFrame(datos)
     
@@ -179,7 +397,7 @@ def generar_datos_muestra(cultivo: str, n_zonas: int = 16):
         (df['materia_organica'] / 5.0 * 0.15) +
         (1 - abs(df['ph'] - params['ph_optimo']) / 3.0 * 0.10) +
         (df['ndvi'] * 0.10)
-    ).clip(0.2, 0.95)  # Limitar para valores más realistas
+    ).clip(0.2, 0.95)
     
     # Clasificar fertilidad
     condiciones = [
@@ -207,12 +425,10 @@ def generar_datos_muestra(cultivo: str, n_zonas: int = 16):
     
     return df
 
-def obtener_datos_climaticos(cultivo: str, mes: str):
+def obtener_datos_climaticos(cultivo: str, mes: str, lat=None, lon=None):
     """Obtiene datos climáticos simulados."""
-    # Simulación simple y estable
     mes_idx = MESES.index(mes) if mes in MESES else 0
     
-    # Valores base según el cultivo
     if cultivo == 'PALMA ACEITERA':
         temp_base = 28.0
         precip_base = 6.0
@@ -223,7 +439,7 @@ def obtener_datos_climaticos(cultivo: str, mes: str):
         temp_base = 26.0
         precip_base = 7.0
     
-    # Variación mensual simple
+    # Variación mensual
     temp = temp_base + 2 * np.sin(2 * np.pi * mes_idx / 12)
     precip = precip_base + 3 * np.sin(2 * np.pi * mes_idx / 12 + np.pi/2)
     
@@ -236,15 +452,15 @@ def obtener_datos_climaticos(cultivo: str, mes: str):
     }
 
 # ============================================================================
-# INTERFAZ DE USUARIO - VERSION ESTABLE
+# INTERFAZ DE USUARIO
 # ============================================================================
 def mostrar_header():
     """Muestra el encabezado de la aplicación."""
     st.markdown("""
     <div class="main-header">
-        <h1 style="margin: 0; font-size: 2.2rem; font-weight: 700;">🌱 ANALIZADOR DE CULTIVOS</h1>
+        <h1 style="margin: 0; font-size: 2.2rem; font-weight: 700;">🌱 ANALIZADOR DE CULTIVOS DIGITAL TWIN</h1>
         <p style="margin: 0.5rem 0 0 0; font-size: 1rem; opacity: 0.95;">
-            Plataforma de análisis agrícola con datos satelitales y climáticos
+            Plataforma profesional de análisis agrícola con carga de polígonos KML
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -252,50 +468,80 @@ def mostrar_header():
 def mostrar_sidebar():
     """Muestra la barra lateral de configuración."""
     with st.sidebar:
-        st.markdown("### ⚙️ CONFIGURACIÓN")
+        st.markdown("### 📁 CARGA DE POLÍGONO")
         st.markdown("---")
         
+        # Uploader de archivo KML
+        uploaded_file = st.file_uploader(
+            "Sube tu archivo KML/KMZ",
+            type=['kml', 'kmz'],
+            help="Sube un archivo KML o KMZ con los polígonos de tu parcela"
+        )
+        
+        if uploaded_file is not None:
+            with st.spinner("Procesando archivo KML..."):
+                gdf = procesar_archivo_kml(uploaded_file)
+                
+                if gdf is not None:
+                    st.session_state['gdf_poligono'] = gdf
+                    st.session_state['archivo_cargado'] = True
+                    
+                    # Mostrar información del archivo
+                    st.markdown(f"""
+                    <div class="uploaded-file-info">
+                        <strong>✅ Archivo cargado exitosamente</strong><br>
+                        <small>Polígonos: {len(gdf)}<br>
+                        Área total: {gdf['area_ha'].sum():.2f} ha</small>
+                    </div>
+                    """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        st.markdown("### ⚙️ CONFIGURACIÓN DEL ANÁLISIS")
+        st.markdown("---")
+        
+        # Selectores de configuración
         cultivo = st.selectbox(
             "**Cultivo principal**",
             list(CULTIVOS.keys()),
-            index=0
+            index=0,
+            key="cultivo_select"
         )
         
         mes = st.selectbox(
             "**Mes de análisis**",
             MESES,
-            index=datetime.now().month - 1
-        )
-        
-        area_total = st.number_input(
-            "**Área total (hectáreas)**",
-            min_value=1.0,
-            max_value=10000.0,
-            value=100.0,
-            step=10.0
+            index=datetime.now().month - 1,
+            key="mes_select"
         )
         
         n_zonas = st.slider(
-            "**Número de zonas**",
+            "**Número de zonas de análisis**",
             min_value=4,
             max_value=30,
             value=12,
-            step=1
+            step=1,
+            key="n_zonas_slider"
         )
         
         st.markdown("---")
         
-        # BOTÓN CORREGIDO - sin use_arrow
-        if st.button("🚀 **EJECUTAR ANÁLISIS**", type="primary", use_container_width=True):
+        # Botón para ejecutar análisis
+        if st.button("🚀 **EJECUTAR ANÁLISIS COMPLETO**", type="primary", use_container_width=True):
             st.session_state['analisis_ejecutado'] = True
             st.session_state['cultivo'] = cultivo
             st.session_state['mes'] = mes
-            st.session_state['area_total'] = area_total
             st.session_state['n_zonas'] = n_zonas
+            
+            # Generar zonas si hay polígono cargado
+            if 'gdf_poligono' in st.session_state:
+                gdf_poligono = st.session_state['gdf_poligono']
+                zonas_gdf = generar_zonas_desde_poligono(gdf_poligono, n_zonas)
+                st.session_state['zonas_gdf'] = zonas_gdf
         
         st.markdown("---")
         
-        with st.expander("ℹ️ Información"):
+        # Información adicional
+        with st.expander("ℹ️ Información técnica"):
             params = CULTIVOS[cultivo]
             st.markdown(f"""
             **Parámetros para {cultivo}:**
@@ -305,10 +551,76 @@ def mostrar_sidebar():
             - pH óptimo: {params['ph_optimo']}
             
             **Configuración actual:**
-            - Área: {area_total:.1f} ha
-            - Zonas: {n_zonas}
+            - Cultivo: {cultivo}
             - Mes: {mes}
+            - Zonas: {n_zonas}
+            
+            **Archivo cargado:** {'✅ Sí' if 'archivo_cargado' in st.session_state else '❌ No'}
             """)
+
+def mostrar_mapa_poligono():
+    """Muestra el mapa interactivo con el polígono cargado."""
+    st.markdown("## 🗺️ VISUALIZACIÓN DEL POLÍGONO")
+    
+    if 'gdf_poligono' not in st.session_state:
+        st.info("""
+        ### 📁 Sube un archivo KML para comenzar
+        
+        1. Usa la barra lateral para subir un archivo KML/KMZ
+        2. El archivo debe contener polígonos válidos
+        3. Una vez cargado, se mostrará aquí en el mapa
+        
+        **Formatos aceptados:** .kml, .kmz
+        **Recomendación:** Usa polígonos de Google Earth o QGIS
+        """)
+        return
+    
+    gdf = st.session_state['gdf_poligono']
+    
+    # Mostrar información del polígono
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Polígonos", len(gdf))
+    
+    with col2:
+        st.metric("Área Total", f"{gdf['area_ha'].sum():.2f} ha")
+    
+    with col3:
+        # Obtener tipo de geometría predominante
+        geom_types = gdf.geometry.geom_type.value_counts()
+        main_type = geom_types.index[0] if len(geom_types) > 0 else "Desconocido"
+        st.metric("Tipo", main_type)
+    
+    st.markdown("---")
+    
+    # Crear y mostrar el mapa
+    with st.spinner("Generando mapa interactivo..."):
+        mapa = crear_mapa_esri(gdf)
+        
+        if mapa:
+            # Mostrar el mapa con streamlit-folium
+            st_folium(mapa, width=800, height=600, returned_objects=[])
+            
+            # Botón para descargar información
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("📊 Ver datos del polígono", use_container_width=True):
+                    st.dataframe(gdf[['area_ha']].round(2), use_container_width=True)
+            
+            with col2:
+                # Crear archivo GeoJSON para descarga
+                geojson = gdf.to_json()
+                st.download_button(
+                    label="💾 Descargar como GeoJSON",
+                    data=geojson,
+                    file_name="poligono_exportado.geojson",
+                    mime="application/json",
+                    use_container_width=True
+                )
+        else:
+            st.error("No se pudo generar el mapa. Verifica que el archivo KML contenga geometrías válidas.")
 
 def mostrar_dashboard(df, datos_clima):
     """Muestra el dashboard principal."""
@@ -427,12 +739,13 @@ def mostrar_dashboard(df, datos_clima):
 
 def mostrar_analisis_detallado(df):
     """Muestra análisis detallado por zona."""
-    st.markdown("## 🔬 ANÁLISIS DETALLADO")
+    st.markdown("## 🔬 ANÁLISIS DETALLADO POR ZONA")
     
     zona_seleccionada = st.selectbox(
         "Seleccionar zona:",
         df['id_zona'].tolist(),
-        format_func=lambda x: f"Zona {x}"
+        format_func=lambda x: f"Zona {x}",
+        key="zona_select"
     )
     
     datos_zona = df[df['id_zona'] == zona_seleccionada].iloc[0]
@@ -442,6 +755,10 @@ def mostrar_analisis_detallado(df):
     with col1:
         st.markdown(f"### Zona {zona_seleccionada}")
         st.markdown(f"**Área:** {datos_zona['area_ha']:.2f} ha")
+        
+        if 'centroid_lat' in datos_zona and 'centroid_lon' in datos_zona:
+            st.markdown(f"**Ubicación:** {datos_zona['centroid_lat']:.4f}, {datos_zona['centroid_lon']:.4f}")
+        
         st.markdown(f"**Fertilidad:** {datos_zona['indice_fertilidad']:.3f}")
         st.markdown(f"**Categoría:** {datos_zona['categoria']}")
         st.markdown(f"**Prioridad:** {datos_zona['prioridad']}")
@@ -472,7 +789,6 @@ def mostrar_analisis_detallado(df):
         
         fig = go.Figure()
         
-        # Barras para valores actuales
         fig.add_trace(go.Bar(
             x=nutrientes,
             y=valores,
@@ -507,15 +823,22 @@ def mostrar_analisis_detallado(df):
     
     # Tabla de todas las zonas
     st.markdown("---")
-    st.markdown("### 📋 Resumen de Todas las Zonas")
+    st.markdown("### 📋 RESUMEN DE TODAS LAS ZONAS")
     
     columnas = ['id_zona', 'area_ha', 'indice_fertilidad', 'categoria', 'prioridad', 'potencial_cosecha']
+    if 'centroid_lat' in df.columns and 'centroid_lon' in df.columns:
+        columnas.extend(['centroid_lat', 'centroid_lon'])
+    
     df_display = df[columnas].copy()
     
     # Formatear números
     df_display['area_ha'] = df_display['area_ha'].round(2)
     df_display['indice_fertilidad'] = df_display['indice_fertilidad'].round(3)
     df_display['potencial_cosecha'] = df_display['potencial_cosecha'].round(1)
+    
+    if 'centroid_lat' in df_display.columns:
+        df_display['centroid_lat'] = df_display['centroid_lat'].round(6)
+        df_display['centroid_lon'] = df_display['centroid_lon'].round(6)
     
     st.dataframe(
         df_display,
@@ -531,109 +854,50 @@ def mostrar_analisis_detallado(df):
         hide_index=True
     )
 
-def mostrar_reportes(df):
-    """Muestra la sección de reportes."""
-    st.markdown("## 📄 REPORTES Y EXPORTACIÓN")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        tipo_reporte = st.selectbox(
-            "Tipo de reporte:",
-            ["Reporte Completo", "Fertilidad", "Clima", "Recomendaciones"],
-            key="report_type"
-        )
-        
-        formato = st.selectbox(
-            "Formato:",
-            ["CSV", "Excel", "Resumen PDF"],
-            key="format_type"
-        )
-    
-    with col2:
-        st.markdown("**Opciones:**")
-        incluir_detalles = st.checkbox("Incluir detalles por zona", value=True)
-        incluir_graficos = st.checkbox("Incluir gráficos", value=True)
-    
-    st.markdown("---")
-    
-    # Botones de exportación
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("📥 Exportar CSV", use_container_width=True):
-            csv = df.to_csv(index=False, encoding='utf-8')
-            st.download_button(
-                label="Descargar CSV",
-                data=csv,
-                file_name=f"analisis_{datetime.now().strftime('%Y%m%d')}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
-    
-    with col2:
-        if st.button("📊 Exportar Excel", use_container_width=True):
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                df.to_excel(writer, sheet_name='Análisis', index=False)
-            
-            st.download_button(
-                label="Descargar Excel",
-                data=buffer.getvalue(),
-                file_name=f"analisis_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-    
-    # Vista previa
-    st.markdown("---")
-    st.markdown("### 👁️ Vista Previa del Reporte")
-    
-    with st.expander("Ver estadísticas"):
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric("Fertilidad Promedio", f"{df['indice_fertilidad'].mean():.3f}")
-        
-        with col2:
-            st.metric("Potencial Total", f"{df['potencial_cosecha'].sum():.0f} ton")
-        
-        with col3:
-            zonas_bajas = len(df[df['categoria'].isin(['BAJA', 'MUY BAJA'])])
-            st.metric("Zonas Problemáticas", zonas_bajas)
-
 def mostrar_bienvenida():
     """Muestra pantalla de bienvenida."""
     col1, col2 = st.columns([3, 1])
     
     with col1:
         st.markdown("""
-        ## 👋 ¡Bienvenido al Analizador de Cultivos!
+        ## 👋 ¡Bienvenido al Analizador de Cultivos Digital Twin!
         
-        Esta plataforma permite realizar análisis avanzados de cultivos
-        utilizando datos simulados basados en parámetros agronómicos reales.
+        ### 🌟 **NUEVA FUNCIONALIDAD: Carga de polígonos KML**
         
-        ### 🚀 ¿Cómo empezar?
+        Ahora puedes subir tus propios polígonos de parcela en formato KML/KMZ
+        y visualizarlos en mapas satelitales de alta resolución.
         
-        1. **Configura los parámetros** en la barra lateral
-        2. **Haz clic en "EJECUTAR ANÁLISIS"**
-        3. **Explora los resultados** en las diferentes secciones
+        ### 🚀 **¿Cómo empezar?**
         
-        ### 📊 Características
+        1. **Sube tu archivo KML** en la barra lateral
+        2. **Configura los parámetros** del análisis
+        3. **Ejecuta el análisis completo**
+        4. **Explora los resultados** en las diferentes pestañas
         
-        ✅ Análisis de fertilidad por zonas  
-        ✅ Datos climáticos estacionales  
-        ✅ Recomendaciones personalizadas  
-        ✅ Reportes exportables  
-        ✅ Interfaz moderna y estable  
+        ### 📊 **Características principales**
+        
+        ✅ **Carga de polígonos KML/KMZ**  
+        ✅ **Mapas interactivos con Esri Satellite**  
+        ✅ **Análisis de fertilidad por zonas**  
+        ✅ **Datos climáticos estacionales**  
+        ✅ **Reportes exportables en múltiples formatos**  
+        
+        ### 🗺️ **Sobre los archivos KML**
+        
+        Puedes crear archivos KML usando:
+        - Google Earth
+        - QGIS
+        - ArcGIS
+        - Cualquier software GIS que exporte a KML
         """)
     
     with col2:
         st.info("""
-        **Versión:** 2.0 Estable  
+        **Versión:** 3.0 con KML  
         **Estado:** Listo para uso  
+        **Formatos:** KML, KMZ  
+        **Mapas:** Esri Satellite  
         **Cultivos:** 3 disponibles  
-        **Actualización:** Automática  
         """)
 
 def mostrar_footer():
@@ -643,8 +907,8 @@ def mostrar_footer():
     st.markdown("""
     <div style="text-align: center; color: #666; padding: 1rem 0;">
         <p style="margin: 0; font-size: 0.9rem;">
-            🌿 <strong>Analizador de Cultivos Digital Twin</strong> | 
-            Versión 2.0 Estable | 
+            🌿 <strong>Analizador de Cultivos Digital Twin v3.0</strong> | 
+            Con soporte para KML y mapas satelitales | 
             © 2024 AgTech Solutions
         </p>
         <p style="margin: 0.5rem 0 0 0; font-size: 0.8rem;">
@@ -661,9 +925,11 @@ def mostrar_footer():
 def main():
     """Función principal de la aplicación."""
     
-    # Inicializar session state si no existe
+    # Inicializar session state
     if 'analisis_ejecutado' not in st.session_state:
         st.session_state['analisis_ejecutado'] = False
+    if 'archivo_cargado' not in st.session_state:
+        st.session_state['archivo_cargado'] = False
     
     # Mostrar encabezado
     mostrar_header()
@@ -671,20 +937,102 @@ def main():
     # Mostrar barra lateral
     mostrar_sidebar()
     
-    # Contenido principal basado en estado
-    if st.session_state['analisis_ejecutado']:
+    # Determinar qué pestañas mostrar
+    if st.session_state['archivo_cargado']:
+        # Mostrar pestañas incluyendo el mapa
+        tab1, tab2, tab3, tab4 = st.tabs(["🗺️ Mapa", "📊 Dashboard", "🔬 Análisis", "📄 Reportes"])
+        
+        with tab1:
+            mostrar_mapa_poligono()
+        
+        # Contenido de análisis si se ha ejecutado
+        if st.session_state['analisis_ejecutado']:
+            with tab2:
+                # Obtener parámetros
+                cultivo = st.session_state.get('cultivo', 'PALMA ACEITERA')
+                mes = st.session_state.get('mes', 'ENERO')
+                n_zonas = st.session_state.get('n_zonas', 12)
+                
+                # Generar datos usando zonas del polígono si existen
+                zonas_gdf = st.session_state.get('zonas_gdf', None)
+                
+                with st.spinner("🔄 Generando análisis..."):
+                    df = generar_datos_muestra(cultivo, n_zonas, zonas_gdf)
+                    datos_clima = obtener_datos_climaticos(cultivo, mes)
+                
+                mostrar_dashboard(df, datos_clima)
+            
+            with tab3:
+                if 'df' in locals():
+                    mostrar_analisis_detallado(df)
+            
+            with tab4:
+                if 'df' in locals():
+                    st.markdown("## 📄 REPORTES Y EXPORTACIÓN")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        # Exportar CSV
+                        csv = df.to_csv(index=False, encoding='utf-8')
+                        st.download_button(
+                            label="📥 Exportar CSV",
+                            data=csv,
+                            file_name=f"analisis_{cultivo}_{datetime.now().strftime('%Y%m%d')}.csv",
+                            mime="text/csv",
+                            use_container_width=True
+                        )
+                    
+                    with col2:
+                        # Exportar Excel
+                        buffer = io.BytesIO()
+                        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                            df.to_excel(writer, sheet_name='Análisis', index=False)
+                        
+                        st.download_button(
+                            label="📊 Exportar Excel",
+                            data=buffer.getvalue(),
+                            file_name=f"analisis_{cultivo}_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+                    
+                    # Vista previa
+                    st.markdown("---")
+                    st.markdown("### 👁️ VISTA PREVIA DEL REPORTE")
+                    
+                    with st.expander("Ver estadísticas"):
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            st.metric("Fertilidad Promedio", f"{df['indice_fertilidad'].mean():.3f}")
+                        
+                        with col2:
+                            st.metric("Potencial Total", f"{df['potencial_cosecha'].sum():.0f} ton")
+                        
+                        with col3:
+                            zonas_bajas = len(df[df['categoria'].isin(['BAJA', 'MUY BAJA'])])
+                            st.metric("Zonas Problemáticas", zonas_bajas)
+        else:
+            with tab2:
+                st.info("Ejecuta el análisis desde la barra lateral para ver los resultados.")
+            with tab3:
+                st.info("Ejecuta el análisis desde la barra lateral para ver los resultados.")
+            with tab4:
+                st.info("Ejecuta el análisis desde la barra lateral para ver los resultados.")
+    
+    elif st.session_state['analisis_ejecutado']:
+        # Análisis ejecutado sin archivo KML (datos simulados)
+        tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🔬 Análisis", "📄 Reportes"])
+        
         # Obtener parámetros
         cultivo = st.session_state.get('cultivo', 'PALMA ACEITERA')
         mes = st.session_state.get('mes', 'ENERO')
         n_zonas = st.session_state.get('n_zonas', 12)
         
-        # Generar datos
-        with st.spinner("🔄 Generando análisis..."):
+        with st.spinner("🔄 Generando análisis con datos simulados..."):
             df = generar_datos_muestra(cultivo, n_zonas)
             datos_clima = obtener_datos_climaticos(cultivo, mes)
-        
-        # Crear pestañas
-        tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🔬 Análisis", "📄 Reportes"])
         
         with tab1:
             mostrar_dashboard(df, datos_clima)
@@ -693,10 +1041,35 @@ def main():
             mostrar_analisis_detallado(df)
         
         with tab3:
-            mostrar_reportes(df)
+            st.markdown("## 📄 REPORTES Y EXPORTACIÓN")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                csv = df.to_csv(index=False, encoding='utf-8')
+                st.download_button(
+                    label="📥 Exportar CSV",
+                    data=csv,
+                    file_name=f"analisis_{cultivo}_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            
+            with col2:
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df.to_excel(writer, sheet_name='Análisis', index=False)
+                
+                st.download_button(
+                    label="📊 Exportar Excel",
+                    data=buffer.getvalue(),
+                    file_name=f"analisis_{cultivo}_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
     
     else:
-        # Pantalla de bienvenida
+        # Pantalla de bienvenida inicial
         mostrar_bienvenida()
     
     # Mostrar footer
