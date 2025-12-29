@@ -26,14 +26,75 @@ import geojson
 import requests
 warnings.filterwarnings('ignore')
 
+# === ESTILOS PERSONALIZADOS PARA INTERFAZ MEJORADA ===
+st.markdown("""
+<style>
+    /* Fondo general */
+    .stApp {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+    }
+    
+    /* Sidebar mejorado */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1a2a6c 0%, #2a4d69 100%);
+        color: white;
+    }
+    
+    [data-testid="stSidebar"] * {
+        color: white !important;
+    }
+    
+    .sidebar-title {
+        font-size: 1.4em;
+        font-weight: bold;
+        margin-bottom: 1.2em;
+        text-align: center;
+        padding: 0.8em;
+        background: rgba(255,255,255,0.1);
+        border-radius: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    
+    /* Botones */
+    .stButton > button {
+        background: linear-gradient(120deg, #2a4d69, #1a2a6c);
+        color: white;
+        border: none;
+        padding: 0.6em 1.2em;
+        border-radius: 8px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(26, 42, 108, 0.4);
+    }
+    
+    /* Títulos */
+    h1, h2, h3 {
+        color: #1a2a6c !important;
+        font-weight: 700 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # CONFIGURACIÓN DE PÁGINA - DEBE SER LO PRIMERO
 st.set_page_config(
     page_title="🌱 Analizador Multi-Cultivo Satellital",
     layout="wide",
     page_icon="🛰️"
 )
-st.title("🛰️ ANALIZADOR MULTI-CULTIVO TROPICAL - PALMA, CACAO, BANANO, CAFÉ")
-st.markdown("---")
+
+# Título principal con banner
+st.markdown("""
+<div style="background: linear-gradient(135deg, #1a2a6c 0%, #2a4d69 100%); 
+            padding: 1.5em; border-radius: 16px; margin-bottom: 1.5em; box-shadow: 0 4px 20px rgba(26, 42, 108, 0.3);">
+    <h1 style="color: white; text-align: center; margin: 0; font-size: 2.4em;">
+        🛰️ ANALIZADOR MULTI-CULTIVO TROPICAL - PALMA, CACAO, BANANO, CAFÉ
+    </h1>
+</div>
+""", unsafe_allow_html=True)
 
 # ===== CONFIGURACIÓN DE SATÉLITES DISPONIBLES =====
 SATELITES_DISPONIBLES = {
@@ -273,6 +334,14 @@ PALETAS_GEE = {
     'PENDIENTE': ['#4daf4a', '#a6d96a', '#ffffbf', '#fdae61', '#f46d43', '#d73027']
 }
 
+# URLs de imágenes para sidebar
+IMAGENES_CULTIVOS = {
+    'PALMA ACEITERA': 'https://images.unsplash.com/photo-1597981309443-6e2d2a4d9c3f?auto=format&fit=crop&w=200&h=150&q=80',
+    'CACAO': 'https://images.unsplash.com/photo-1606312619070-d48b4c652a52?auto=format&fit=crop&w=200&h=150&q=80',
+    'BANANO': 'https://images.unsplash.com/photo-1587479535213-1f3c862e2f1e?auto=format&fit=crop&w=200&h=150&q=80',
+    'CAFÉ': 'https://images.unsplash.com/photo-1495498882177-2a843e5c2a36?auto=format&fit=crop&w=200&h=150&q=80'
+}
+
 # ===== INICIALIZACIÓN SEGURA DE VARIABLES DE CONFIGURACIÓN =====
 nutriente = None
 satelite_seleccionado = "SENTINEL-2"
@@ -282,10 +351,12 @@ fecha_fin = datetime.now()
 intervalo_curvas = 5.0
 resolucion_dem = 10.0
 
-# ===== SIDEBAR =====
+# ===== SIDEBAR MEJORADO (INTERFAZ VISUAL) =====
 with st.sidebar:
-    st.header("⚙️ Configuración")
+    st.markdown('<div class="sidebar-title">⚙️ CONFIGURACIÓN</div>', unsafe_allow_html=True)
     cultivo = st.selectbox("Cultivo:", ["PALMA ACEITERA", "CACAO", "BANANO", "CAFÉ"])
+    st.image(IMAGENES_CULTIVOS[cultivo], use_container_width=True)
+    
     analisis_tipo = st.selectbox("Tipo de Análisis:", ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK", "ANÁLISIS DE TEXTURA", "ANÁLISIS DE CURVAS DE NIVEL"])
     
     if analisis_tipo == "RECOMENDACIONES NPK":
@@ -609,11 +680,11 @@ def generar_datos_simulados(gdf, cultivo, indice='NDVI'):
     st.success("✅ Datos simulados generados")
     return datos_simulados
 
-# ===== FUNCIÓN PARA OBTENER DATOS DE NASA POWER =====
+# ===== FUNCIÓN CORREGIDA PARA NASA POWER =====
 def obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin):
     """
     Obtiene datos meteorológicos diarios de NASA POWER para el centroide de la parcela.
-    Variables principales: radiación solar (ALLSKY_SFC_SW_DWN) y viento a 2m (WS2M).
+    Variables: radiación solar (ALLSKY_SFC_SW_DWN) y viento a 2m (WS2M).
     """
     try:
         centroid = gdf.geometry.unary_union.centroid
@@ -637,7 +708,7 @@ def obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin):
         response = requests.get(url, params=params, timeout=15)
         data = response.json()
 
-        # ✅ CORRECCIÓN: se añade `data` después de `not in`
+        # ✅ CORRECCIÓN CRÍTICA: se añade `data` después de `not in`
         if 'properties' not in 
             st.warning("⚠️ No se obtuvieron datos de NASA POWER (fuera de rango o sin conexión).")
             return None
@@ -1442,16 +1513,8 @@ def ejecutar_analisis(gdf, nutriente, analisis_tipo, n_divisiones, cultivo,
 
             # === DATOS DE NASA POWER ===
             if satelite:
-                st.subheader("🌤️ DATOS METEOROLÓGICOS (NASA POWER)")
                 df_power = obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin)
                 if df_power is not None:
-                    col5, col6, col7 = st.columns(3)
-                    with col5:
-                        st.metric("☀️ Radiación Solar", f"{df_power['radiacion_solar'].mean():.1f} kWh/m²/día")
-                    with col6:
-                        st.metric("💨 Viento a 2m", f"{df_power['viento_2m'].mean():.2f} m/s")
-                    with col7:
-                        st.metric("💧 NDWI Promedio", f"{gdf_analizado['ndwi'].mean():.3f}")
                     resultados['df_power'] = df_power
 
             return resultados
@@ -1784,6 +1847,18 @@ if uploaded_file:
                                     coef_var = (gdf_analizado['valor_recomendado'].std() / gdf_analizado['valor_recomendado'].mean() * 100)
                                     st.metric("Coef. Variación", f"{coef_var:.1f}%")
 
+                            # === DATOS DE NASA POWER ===
+                            if resultados.get('df_power') is not None:
+                                df_power = resultados['df_power']
+                                st.subheader("🌤️ DATOS METEOROLÓGICOS (NASA POWER)")
+                                col5, col6, col7 = st.columns(3)
+                                with col5:
+                                    st.metric("☀️ Radiación Solar", f"{df_power['radiacion_solar'].mean():.1f} kWh/m²/día")
+                                with col6:
+                                    st.metric("💨 Viento a 2m", f"{df_power['viento_2m'].mean():.2f} m/s")
+                                with col7:
+                                    st.metric("💧 NDWI Promedio", f"{gdf_analizado['ndwi'].mean():.3f}")
+
                             def crear_mapa_estatico(gdf, titulo, columna_valor, analisis_tipo, nutriente, cultivo, satelite):
                                 try:
                                     fig, ax = plt.subplots(1, 1, figsize=(12, 8))
@@ -1884,16 +1959,15 @@ if 'resultados_guardados' in st.session_state:
 
     with col_exp1:
         if st.button("🗺️ Exportar GeoJSON", key="export_geojson"):
-            if 'gdf_analizado' in res and res['gdf_analizado'] is not None:
-                geojson_data, nombre_archivo = exportar_a_geojson(res['gdf_analizado'], f"parcela_{res['cultivo']}")
-                if geojson_
-                    st.download_button(
-                        label="📥 Descargar GeoJSON",
-                        data=geojson_data,
-                        file_name=nombre_archivo,
-                        mime="application/json",
-                        key="geojson_download"
-                    )
+            geojson_data, nombre_archivo = exportar_a_geojson(res['gdf_analizado'], f"parcela_{res['cultivo']}")
+            if geojson_
+                st.download_button(
+                    label="📥 Descargar GeoJSON",
+                    data=geojson_data,
+                    file_name=nombre_archivo,
+                    mime="application/json",
+                    key="geojson_download"
+                )
 
     with col_exp2:
         if st.button("📄 Generar Reporte PDF", key="export_pdf"):
