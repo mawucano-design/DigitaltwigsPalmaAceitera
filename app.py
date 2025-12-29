@@ -23,6 +23,7 @@ from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 import geojson
+import requests
 warnings.filterwarnings('ignore')
 
 # CONFIGURACIÓN DE PÁGINA - DEBE SER LO PRIMERO
@@ -608,6 +609,59 @@ def generar_datos_simulados(gdf, cultivo, indice='NDVI'):
     st.success("✅ Datos simulados generados")
     return datos_simulados
 
+# ===== FUNCIÓN PARA OBTENER DATOS DE NASA POWER =====
+def obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin):
+    """
+    Obtiene datos meteorológicos diarios de NASA POWER para el centroide de la parcela.
+    Variables principales: radiación solar (ALLSKY_SFC_SW_DWN) y viento a 2m (WS2M).
+    """
+    try:
+        centroid = gdf.geometry.unary_union.centroid
+        lat = round(centroid.y, 4)
+        lon = round(centroid.x, 4)
+
+        start = fecha_inicio.strftime("%Y%m%d")
+        end = fecha_fin.strftime("%Y%m%d")
+
+        params = {
+            'parameters': 'ALLSKY_SFC_SW_DWN,WS2M,T2M,PRECTOTCORR',
+            'community': 'RE',
+            'longitude': lon,
+            'latitude': lat,
+            'start': start,
+            'end': end,
+            'format': 'JSON'
+        }
+
+        url = "https://power.larc.nasa.gov/api/temporal/daily/point"
+        response = requests.get(url, params=params, timeout=15)
+        data = response.json()
+
+        if 'properties' not in 
+            st.warning("⚠️ No se obtuvieron datos de NASA POWER (fuera de rango o sin conexión).")
+            return None
+
+        series = data['properties']['parameter']
+        df_power = pd.DataFrame({
+            'fecha': pd.to_datetime(list(series['ALLSKY_SFC_SW_DWN'].keys())),
+            'radiacion_solar': list(series['ALLSKY_SFC_SW_DWN'].values()),
+            'viento_2m': list(series['WS2M'].values()),
+            'temperatura': list(series['T2M'].values()),
+            'precipitacion': list(series['PRECTOTCORR'].values())
+        })
+
+        df_power = df_power.replace(-999, np.nan).dropna()
+        if df_power.empty:
+            st.warning("⚠️ Datos de NASA POWER no disponibles para el período seleccionado.")
+            return None
+
+        st.success("✅ Datos meteorológicos de NASA POWER cargados.")
+        return df_power
+
+    except Exception as e:
+        st.error(f"❌ Error al obtener datos de NASA POWER: {str(e)}")
+        return None
+
 # ===== FUNCIONES DE ANÁLISIS GEE =====
 def calcular_indices_satelitales_gee(gdf, cultivo, datos_satelitales):
     n_poligonos = len(gdf)
@@ -648,6 +702,10 @@ def calcular_indices_satelitales_gee(gdf, cultivo, datos_satelitales):
         ndre = ndre_base + ndre_variacion + np.random.normal(0, 0.04)
         ndre = max(0.05, min(0.7, ndre))
 
+        # Calcular NDWI simulado (proxy de humedad)
+        ndwi = 0.2 + np.random.normal(0, 0.08)
+        ndwi = max(0, min(1, ndwi))
+
         npk_actual = (ndvi * 0.4) + (ndre * 0.3) + ((materia_organica / 8) * 0.2) + (humedad_suelo * 0.1)
         npk_actual = max(0, min(1, npk_actual))
 
@@ -656,6 +714,7 @@ def calcular_indices_satelitales_gee(gdf, cultivo, datos_satelitales):
             'humedad_suelo': round(humedad_suelo, 3),
             'ndvi': round(ndvi, 3),
             'ndre': round(ndre, 3),
+            'ndwi': round(ndwi, 3),  # ← nuevo
             'npk_actual': round(npk_actual, 3)
         })
     return resultados
@@ -952,18 +1011,24 @@ def exportar_a_geojson(gdf, nombre_base="parcela"):
         st.error(f"❌ Error exportando a GeoJSON: {str(e)}")
         return None, None
 
-def generar_resumen_estadisticas(gdf_analizado, analisis_tipo, cultivo):
+def generar_resumen_estadisticas(gdf_analizado, analisis_tipo, cultivo, df_power=None):
     estadisticas = {}
     try:
         if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
             if 'npk_actual' in gdf_analizado.columns:
                 estadisticas['Índice NPK Promedio'] = f"{gdf_analizado['npk_actual'].mean():.3f}"
-                estadisticas['Índice NPK Mínimo'] = f"{gdf_analizado['npk_actual'].min():.3f}"
-                estadisticas['Índice NPK Máximo'] = f"{gdf_analizado['npk_actual'].max():.3f}"
             if 'ndvi' in gdf_analizado.columns:
                 estadisticas['NDVI Promedio'] = f"{gdf_analizado['ndvi'].mean():.3f}"
+            if 'ndwi' in gdf_analizado.columns:
+                estadisticas['NDWI Promedio'] = f"{gdf_analizado['ndwi'].mean():.3f}"
             if 'materia_organica' in gdf_analizado.columns:
                 estadisticas['Materia Orgánica Promedio'] = f"{gdf_analizado['materia_organica'].mean():.1f}%"
+            
+            # Datos de NASA POWER
+            if df_power is not None:
+                estadisticas['Radiación Solar Promedio'] = f"{df_power['radiacion_solar'].mean():.1f} kWh/m²/día"
+                estadisticas['Velocidad Viento Promedio'] = f"{df_power['viento_2m'].mean():.2f} m/s"
+
         elif analisis_tipo == "ANÁLISIS DE TEXTURA":
             if 'arena' in gdf_analizado.columns:
                 estadisticas['Arena Promedio'] = f"{gdf_analizado['arena'].mean():.1f}%"
@@ -1115,6 +1180,8 @@ Tipo de Análisis: {analisis_tipo}"""
                 columnas_mostrar.append('valor_recomendado')
             if 'textura_suelo' in gdf_analizado.columns:
                 columnas_mostrar.append('textura_suelo')
+            if 'ndwi' in gdf_analizado.columns:
+                columnas_mostrar.append('ndwi')
             columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
             if columnas_mostrar:
                 datos_tabla = [columnas_mostrar]
@@ -1124,7 +1191,7 @@ Tipo de Análisis: {analisis_tipo}"""
                         if col in gdf_analizado.columns:
                             valor = row[col]
                             if isinstance(valor, float):
-                                if col in ['npk_actual']:
+                                if col in ['npk_actual', 'ndwi']:
                                     fila.append(f"{valor:.3f}")
                                 else:
                                     fila.append(f"{valor:.2f}")
@@ -1246,6 +1313,8 @@ def generar_reporte_docx(gdf_analizado, cultivo, analisis_tipo, area_total,
                 columnas_mostrar.append('valor_recomendado')
             if 'textura_suelo' in gdf_analizado.columns:
                 columnas_mostrar.append('textura_suelo')
+            if 'ndwi' in gdf_analizado.columns:
+                columnas_mostrar.append('ndwi')
             columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
             if columnas_mostrar:
                 tabla = doc.add_table(rows=1, cols=len(columnas_mostrar))
@@ -1258,7 +1327,7 @@ def generar_reporte_docx(gdf_analizado, cultivo, analisis_tipo, area_total,
                         if col in gdf_analizado.columns:
                             valor = row[col]
                             if isinstance(valor, float):
-                                if col in ['npk_actual']:
+                                if col in ['npk_actual', 'ndwi']:
                                     row_cells[i].text = f"{valor:.3f}"
                                 else:
                                     row_cells[i].text = f"{valor:.2f}"
@@ -1309,7 +1378,8 @@ def ejecutar_analisis(gdf, nutriente, analisis_tipo, n_divisiones, cultivo,
         'tabla_datos': None,
         'estadisticas': {},
         'recomendaciones': [],
-        'area_total': 0
+        'area_total': 0,
+        'df_power': None
     }
     try:
         gdf = validar_y_corregir_crs(gdf)
@@ -1368,6 +1438,21 @@ def ejecutar_analisis(gdf, nutriente, analisis_tipo, n_divisiones, cultivo,
 
             resultados['gdf_analizado'] = gdf_analizado
             resultados['exitoso'] = True
+
+            # === DATOS DE NASA POWER ===
+            if satelite:
+                st.subheader("🌤️ DATOS METEOROLÓGICOS (NASA POWER)")
+                df_power = obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin)
+                if df_power is not None:
+                    col5, col6, col7 = st.columns(3)
+                    with col5:
+                        st.metric("☀️ Radiación Solar", f"{df_power['radiacion_solar'].mean():.1f} kWh/m²/día")
+                    with col6:
+                        st.metric("💨 Viento a 2m", f"{df_power['viento_2m'].mean():.2f} m/s")
+                    with col7:
+                        st.metric("💧 NDWI Promedio", f"{gdf_analizado['ndwi'].mean():.3f}")
+                    resultados['df_power'] = df_power
+
             return resultados
 
         else:
@@ -1662,7 +1747,8 @@ if uploaded_file:
                             'Y': None,
                             'Z': None,
                             'pendiente_grid': None,
-                            'gdf_original': gdf if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL" else None
+                            'gdf_original': gdf if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL" else None,
+                            'df_power': resultados.get('df_power')  # <<<< Añadido
                         }
                         if analisis_tipo == "ANÁLISIS DE TEXTURA":
                             mostrar_resultados_textura(resultados['gdf_analizado'], cultivo, resultados['area_total'])
@@ -1763,9 +1849,9 @@ if uploaded_file:
                                         "image/png"
                                     )
                                 st.subheader("🔬 ÍNDICES SATELITALES GEE POR ZONA")
-                                columnas_indices = ['id_zona', 'npk_actual', 'materia_organica', 'ndvi', 'ndre', 'humedad_suelo']
+                                columnas_indices = ['id_zona', 'npk_actual', 'materia_organica', 'ndvi', 'ndre', 'humedad_suelo', 'ndwi']
                                 if analisis_tipo == "RECOMENDACIONES NPK":
-                                    columnas_indices = ['id_zona', 'valor_recomendado', 'npk_actual', 'materia_organica', 'ndvi', 'ndre', 'humedad_suelo']
+                                    columnas_indices = ['id_zona', 'valor_recomendado', 'npk_actual', 'materia_organica', 'ndvi', 'ndre', 'humedad_suelo', 'ndwi']
                                 columnas_indices = [col for col in columnas_indices if col in gdf_analizado.columns]
                                 tabla_indices = gdf_analizado[columnas_indices].copy()
                                 rename_dict = {
@@ -1775,7 +1861,8 @@ if uploaded_file:
                                     'materia_organica': 'Materia Org (%)',
                                     'ndvi': 'NDVI',
                                     'ndre': 'NDRE',
-                                    'humedad_suelo': 'Humedad'
+                                    'humedad_suelo': 'Humedad',
+                                    'ndwi': 'NDWI'
                                 }
                                 tabla_indices = tabla_indices.rename(columns={k: v for k, v in rename_dict.items() if k in tabla_indices.columns})
                                 st.dataframe(tabla_indices)
@@ -1797,7 +1884,7 @@ if 'resultados_guardados' in st.session_state:
     with col_exp1:
         if st.button("🗺️ Exportar GeoJSON", key="export_geojson"):
             geojson_data, nombre_archivo = exportar_a_geojson(res['gdf_analizado'], f"parcela_{res['cultivo']}")
-            if geojson_data:
+            if geojson_
                 st.download_button(
                     label="📥 Descargar GeoJSON",
                     data=geojson_data,
@@ -1809,7 +1896,12 @@ if 'resultados_guardados' in st.session_state:
     with col_exp2:
         if st.button("📄 Generar Reporte PDF", key="export_pdf"):
             with st.spinner("Generando PDF..."):
-                estadisticas = generar_resumen_estadisticas(res['gdf_analizado'], res['analisis_tipo'], res['cultivo'])
+                estadisticas = generar_resumen_estadisticas(
+                    res['gdf_analizado'], 
+                    res['analisis_tipo'], 
+                    res['cultivo'],
+                    res.get('df_power')
+                )
                 recomendaciones = generar_recomendaciones_generales(res['gdf_analizado'], res['analisis_tipo'], res['cultivo'])
                 mapa_buffer = res.get('mapa_buffer')
                 pdf_buffer = generar_reporte_pdf(
@@ -1831,7 +1923,12 @@ if 'resultados_guardados' in st.session_state:
     with col_exp3:
         if st.button("📝 Generar Reporte DOCX", key="export_docx"):
             with st.spinner("Generando DOCX..."):
-                estadisticas = generar_resumen_estadisticas(res['gdf_analizado'], res['analisis_tipo'], res['cultivo'])
+                estadisticas = generar_resumen_estadisticas(
+                    res['gdf_analizado'], 
+                    res['analisis_tipo'], 
+                    res['cultivo'],
+                    res.get('df_power')
+                )
                 recomendaciones = generar_recomendaciones_generales(res['gdf_analizado'], res['analisis_tipo'], res['cultivo'])
                 mapa_buffer = res.get('mapa_buffer')
                 docx_buffer = generar_reporte_docx(
@@ -1897,37 +1994,6 @@ with st.expander("📋 FORMATOS DE ARCHIVO ACEPTADOS"):
         - Compatible con Google Earth
         - Siempre en EPSG:4326
         """)
-# FORMATOS ACEPTADOS Y METODOLOGÍA
-with st.expander("📋 FORMATOS DE ARCHIVO ACEPTADOS"):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("**🗺️ Shapefile (.zip)**")
-        st.markdown("""
-        - Archivo ZIP que contiene:
-        - .shp (geometrías)
-        - .shx (índice)
-        - .dbf (atributos)
-        - .prj (proyección, opcional)
-        - Se recomienda usar EPSG:4326 (WGS84)
-        """)
-    with col2:
-        st.markdown("**🌐 KML (.kml)**")
-        st.markdown("""
-        - Formato Keyhole Markup Language
-        - Usado por Google Earth
-        - Contiene geometrías y atributos
-        - Puede incluir estilos y colores
-        - Siempre en EPSG:4326
-        """)
-    with col3:
-        st.markdown("**📦 KMZ (.kmz)**")
-        st.markdown("""
-        - Versión comprimida de KML
-        - Archivo ZIP con extensión .kmz
-        - Puede incluir recursos (imágenes, etc.)
-        - Compatible con Google Earth
-        - Siempre en EPSG:4326
-        """)
 
 with st.expander("ℹ️ INFORMACIÓN SOBRE LA METODOLOGÍA"):
     st.markdown("""
@@ -1943,11 +2009,15 @@ with st.expander("ℹ️ INFORMACIÓN SOBRE LA METODOLOGÍA"):
     - **☕ CAFÉ:** Cultivo de montaña, sensible a pendientes y pH ácido
     **🚀 FUNCIONALIDADES:**
     - **🌱 Fertilidad Actual:** Estado NPK del suelo usando índices satelitales
+    - **💧 NDWI (Humedad):** Índice de Agua en Vegetación/Suelo
+    - **☀️ Radiación Solar:** Datos de NASA POWER (kWh/m²/día)
+    - **💨 Velocidad del Viento:** Datos de NASA POWER (m/s)
     - **💊 Recomendaciones NPK:** Dosis específicas por cultivo tropical
     - **🏗️ Análisis de Textura:** Composición del suelo (arena, limo, arcilla)
     - **🏔️ Curvas de Nivel:** Análisis topográfico con mapa de calor de pendientes
     **🔬 METODOLOGÍA CIENTÍFICA:**
     - Análisis basado en imágenes satelitales
+    - Integración con datos meteorológicos de NASA POWER
     - Parámetros específicos para cultivos tropicales
     - Cálculo de índices de vegetación y suelo
     - Modelos digitales de elevación (DEM) sintéticos
