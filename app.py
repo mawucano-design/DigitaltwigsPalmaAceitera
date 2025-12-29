@@ -1794,7 +1794,7 @@ if 'resultados_guardados' in st.session_state:
     st.subheader("📤 EXPORTAR RESULTADOS")
     col_exp1, col_exp2, col_exp3, col_exp4 = st.columns(4)
 
-with col_exp1:
+    with col_exp1:
         if st.button("🗺️ Exportar GeoJSON", key="export_geojson"):
             geojson_data, nombre_archivo = exportar_a_geojson(res['gdf_analizado'], f"parcela_{res['cultivo']}")
             if geojson_data:
@@ -1866,6 +1866,37 @@ with col_exp1:
                     key="csv_download"
                 )
 
+# FORMATOS ACEPTADOS Y METODOLOGÍA
+with st.expander("📋 FORMATOS DE ARCHIVO ACEPTADOS"):
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("**🗺️ Shapefile (.zip)**")
+        st.markdown("""
+        - Archivo ZIP que contiene:
+        - .shp (geometrías)
+        - .shx (índice)
+        - .dbf (atributos)
+        - .prj (proyección, opcional)
+        - Se recomienda usar EPSG:4326 (WGS84)
+        """)
+    with col2:
+        st.markdown("**🌐 KML (.kml)**")
+        st.markdown("""
+        - Formato Keyhole Markup Language
+        - Usado por Google Earth
+        - Contiene geometrías y atributos
+        - Puede incluir estilos y colores
+        - Siempre en EPSG:4326
+        """)
+    with col3:
+        st.markdown("**📦 KMZ (.kmz)**")
+        st.markdown("""
+        - Versión comprimida de KML
+        - Archivo ZIP con extensión .kmz
+        - Puede incluir recursos (imágenes, etc.)
+        - Compatible con Google Earth
+        - Siempre en EPSG:4326
+        """)
 # FORMATOS ACEPTADOS Y METODOLOGÍA
 with st.expander("📋 FORMATOS DE ARCHIVO ACEPTADOS"):
     col1, col2, col3 = st.columns(3)
