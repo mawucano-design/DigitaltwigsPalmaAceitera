@@ -637,6 +637,7 @@ def obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin):
         response = requests.get(url, params=params, timeout=15)
         data = response.json()
 
+        # ✅ CORRECCIÓN: se añade `data` después de `not in`
         if 'properties' not in 
             st.warning("⚠️ No se obtuvieron datos de NASA POWER (fuera de rango o sin conexión).")
             return None
@@ -1883,15 +1884,16 @@ if 'resultados_guardados' in st.session_state:
 
     with col_exp1:
         if st.button("🗺️ Exportar GeoJSON", key="export_geojson"):
-            geojson_data, nombre_archivo = exportar_a_geojson(res['gdf_analizado'], f"parcela_{res['cultivo']}")
-            if geojson_
-                st.download_button(
-                    label="📥 Descargar GeoJSON",
-                    data=geojson_data,
-                    file_name=nombre_archivo,
-                    mime="application/json",
-                    key="geojson_download"
-                )
+            if 'gdf_analizado' in res and res['gdf_analizado'] is not None:
+                geojson_data, nombre_archivo = exportar_a_geojson(res['gdf_analizado'], f"parcela_{res['cultivo']}")
+                if geojson_
+                    st.download_button(
+                        label="📥 Descargar GeoJSON",
+                        data=geojson_data,
+                        file_name=nombre_archivo,
+                        mime="application/json",
+                        key="geojson_download"
+                    )
 
     with col_exp2:
         if st.button("📄 Generar Reporte PDF", key="export_pdf"):
