@@ -705,7 +705,8 @@ def obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin):
         response = requests.get(url, params=params, timeout=15)
         data = response.json()
         
-        if 'properties' not in 
+        # ✅ CORRECCIÓN: se añade `data` después de `not in`
+        if 'properties' not in data:
             st.warning("⚠️ No se obtuvieron datos de NASA POWER (fuera de rango o sin conexión).")
             return None
 
