@@ -291,6 +291,15 @@ PALETAS_GEE = {
     'PENDIENTE': ['#4daf4a', '#a6d96a', '#ffffbf', '#fdae61', '#f46d43', '#d73027']
 }
 
+# ===== INICIALIZACIÓN SEGURA DE VARIABLES DE CONFIGURACIÓN =====
+nutriente = None
+satelite_seleccionado = "SENTINEL-2"
+indice_seleccionado = "NDVI"
+fecha_inicio = datetime.now() - timedelta(days=30)
+fecha_fin = datetime.now()
+intervalo_curvas = 5.0
+resolucion_dem = 10.0
+
 # ===== SIDEBAR =====
 with st.sidebar:
     st.header("⚙️ Configuración")
@@ -299,8 +308,6 @@ with st.sidebar:
     
     if analisis_tipo == "RECOMENDACIONES NPK":
         nutriente = st.selectbox("Nutriente:", ["NITRÓGENO", "FÓSFORO", "POTASIO"])
-    else:
-        nutriente = None
 
     st.subheader("🛰️ Fuente de Datos Satelitales")
     satelite_seleccionado = st.selectbox(
@@ -1663,10 +1670,10 @@ if uploaded_file:
                             'satelite_seleccionado': satelite_seleccionado,
                             'indice_seleccionado': indice_seleccionado,
                             'mapa_buffer': resultados.get('mapa_buffer'),
-                            'X': resultados.get('X'),
-                            'Y': resultados.get('Y'),
-                            'Z': resultados.get('Z'),
-                            'pendiente_grid': resultados.get('pendiente_grid'),
+                            'X': None,
+                            'Y': None,
+                            'Z': None,
+                            'pendiente_grid': None,
                             'gdf_original': gdf if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL" else None
                         }
                         if analisis_tipo == "ANÁLISIS DE TEXTURA":
