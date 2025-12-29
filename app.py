@@ -31,7 +31,7 @@ st.set_page_config(
     layout="wide",
     page_icon="🛰️"
 )
-st.title("🛰️ ANALIZADOR MULTI-CULTIVO - SENTINEL-2 & LANDSAT-8")
+st.title("🛰️ ANALIZADOR MULTI-CULTIVO TROPICAL - PALMA, CACAO, BANANO, CAFÉ")
 st.markdown("---")
 
 # ===== CONFIGURACIÓN DE SATÉLITES DISPONIBLES =====
@@ -65,94 +65,77 @@ SATELITES_DISPONIBLES = {
 # ===== CONFIGURACIÓN =====
 # PARÁMETROS GEE POR CULTIVO
 PARAMETROS_CULTIVOS = {
-    'TRIGO': {
-        'NITROGENO': {'min': 120, 'max': 180},
+    'PALMA ACEITERA': {
+        'NITROGENO': {'min': 180, 'max': 250},
         'FOSFORO': {'min': 40, 'max': 60},
-        'POTASIO': {'min': 80, 'max': 120},
-        'MATERIA_ORGANICA_OPTIMA': 3.5,
-        'HUMEDAD_OPTIMA': 0.25,
-        'NDVI_OPTIMO': 0.7,
-        'NDRE_OPTIMO': 0.4
-    },
-    'MAÍZ': {
-        'NITROGENO': {'min': 150, 'max': 220},
-        'FOSFORO': {'min': 50, 'max': 70},
-        'POTASIO': {'min': 100, 'max': 140},
+        'POTASIO': {'min': 250, 'max': 350},
         'MATERIA_ORGANICA_OPTIMA': 4.0,
+        'HUMEDAD_OPTIMA': 0.35,
+        'NDVI_OPTIMO': 0.85,
+        'NDRE_OPTIMO': 0.5
+    },
+    'CACAO': {
+        'NITROGENO': {'min': 100, 'max': 150},
+        'FOSFORO': {'min': 30, 'max': 50},
+        'POTASIO': {'min': 120, 'max': 180},
+        'MATERIA_ORGANICA_OPTIMA': 5.0,
         'HUMEDAD_OPTIMA': 0.3,
         'NDVI_OPTIMO': 0.75,
+        'NDRE_OPTIMO': 0.4
+    },
+    'BANANO': {
+        'NITROGENO': {'min': 200, 'max': 300},
+        'FOSFORO': {'min': 50, 'max': 80},
+        'POTASIO': {'min': 300, 'max': 450},
+        'MATERIA_ORGANICA_OPTIMA': 3.5,
+        'HUMEDAD_OPTIMA': 0.4,
+        'NDVI_OPTIMO': 0.9,
         'NDRE_OPTIMO': 0.45
     },
-    'SOJA': {
-        'NITROGENO': {'min': 80, 'max': 120},
-        'FOSFORO': {'min': 35, 'max': 50},
-        'POTASIO': {'min': 90, 'max': 130},
-        'MATERIA_ORGANICA_OPTIMA': 3.8,
+    'CAFÉ': {
+        'NITROGENO': {'min': 120, 'max': 180},
+        'FOSFORO': {'min': 25, 'max': 45},
+        'POTASIO': {'min': 150, 'max': 220},
+        'MATERIA_ORGANICA_OPTIMA': 4.5,
         'HUMEDAD_OPTIMA': 0.28,
-        'NDVI_OPTIMO': 0.65,
+        'NDVI_OPTIMO': 0.7,
         'NDRE_OPTIMO': 0.35
-    },
-    'SORGO': {
-        'NITROGENO': {'min': 100, 'max': 150},
-        'FOSFORO': {'min': 30, 'max': 45},
-        'POTASIO': {'min': 70, 'max': 100},
-        'MATERIA_ORGANICA_OPTIMA': 3.0,
-        'HUMEDAD_OPTIMA': 0.22,
-        'NDVI_OPTIMO': 0.6,
-        'NDRE_OPTIMO': 0.3
-    },
-    'GIRASOL': {
-        'NITROGENO': {'min': 90, 'max': 130},
-        'FOSFORO': {'min': 25, 'max': 40},
-        'POTASIO': {'min': 80, 'max': 110},
-        'MATERIA_ORGANICA_OPTIMA': 3.2,
-        'HUMEDAD_OPTIMA': 0.26,
-        'NDVI_OPTIMO': 0.55,
-        'NDRE_OPTIMO': 0.25
     }
 }
 
 # PARÁMETROS DE TEXTURA DEL SUELO POR CULTIVO
 TEXTURA_SUELO_OPTIMA = {
-    'TRIGO': {
+    'PALMA ACEITERA': {
         'textura_optima': 'Franco Arcilloso',
-        'arena_optima': 40,
+        'arena_optima': 35,
         'limo_optima': 30,
-        'arcilla_optima': 30,
+        'arcilla_optima': 35,
         'densidad_aparente_optima': 1.2,
         'porosidad_optima': 0.55
     },
-    'MAÍZ': {
+    'CACAO': {
         'textura_optima': 'Franco',
         'arena_optima': 45,
         'limo_optima': 35,
         'arcilla_optima': 20,
-        'densidad_aparente_optima': 1.3,
-        'porosidad_optima': 0.5
+        'densidad_aparente_optima': 1.1,
+        'porosidad_optima': 0.6
     },
-    'SOJA': {
+    'BANANO': {
         'textura_optima': 'Franco',
-        'arena_optima': 45,
-        'limo_optima': 35,
+        'arena_optima': 50,
+        'limo_optima': 30,
         'arcilla_optima': 20,
-        'densidad_aparente_optima': 1.3,
+        'densidad_aparente_optima': 1.25,
         'porosidad_optima': 0.5
     },
-    'SORGO': {
-        'textura_optima': 'Franco',
-        'arena_optima': 45,
-        'limo_optima': 35,
+    'CAFÉ': {
+        'textura_optima': 'Franco Volcánico',
+        'arena_optima': 40,
+        'limo_optima': 40,
         'arcilla_optima': 20,
-        'densidad_aparente_optima': 1.3,
-        'porosidad_optima': 0.5
-    },
-    'GIRASOL': {
-        'textura_optima': 'Franco Arenoso',
-        'arena_optima': 55,
-        'limo_optima': 25,
-        'arcilla_optima': 20,
-        'densidad_aparente_optima': 1.4,
-        'porosidad_optima': 0.45
+        'densidad_aparente_optima': 0.9,
+        'porosidad_optima': 0.65
     }
 }
 
@@ -266,18 +249,16 @@ RECOMENDACIONES_TEXTURA = {
 
 # ICONOS Y COLORES POR CULTIVO
 ICONOS_CULTIVOS = {
-    'TRIGO': '🌾',
-    'MAÍZ': '🌽',
-    'SOJA': '🫘',
-    'SORGO': '🌾',
-    'GIRASOL': '🌻'
+    'PALMA ACEITERA': '🌴',
+    'CACAO': '🍫',
+    'BANANO': '🍌',
+    'CAFÉ': '☕'
 }
 COLORES_CULTIVOS = {
-    'TRIGO': '#FFD700',
-    'MAÍZ': '#FFA500',
-    'SOJA': '#8B4513',
-    'SORGO': '#D2691E',
-    'GIRASOL': '#FFD700'
+    'PALMA ACEITERA': '#228B22',
+    'CACAO': '#654321',
+    'BANANO': '#FFD700',
+    'CAFÉ': '#8B4513'
 }
 
 # PALETAS GEE MEJORADAS
@@ -303,7 +284,7 @@ resolucion_dem = 10.0
 # ===== SIDEBAR =====
 with st.sidebar:
     st.header("⚙️ Configuración")
-    cultivo = st.selectbox("Cultivo:", ["TRIGO", "MAÍZ", "SOJA", "SORGO", "GIRASOL"])
+    cultivo = st.selectbox("Cultivo:", ["PALMA ACEITERA", "CACAO", "BANANO", "CAFÉ"])
     analisis_tipo = st.selectbox("Tipo de Análisis:", ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK", "ANÁLISIS DE TEXTURA", "ANÁLISIS DE CURVAS DE NIVEL"])
     
     if analisis_tipo == "RECOMENDACIONES NPK":
@@ -1023,12 +1004,19 @@ def generar_recomendaciones_generales(gdf_analizado, analisis_tipo, cultivo):
                     recomendaciones.append("Suelo arenoso: Aumentar materia orgánica y considerar riego frecuente")
                 elif textura_predominante == "Franco":
                     recomendaciones.append("Textura franca: Condiciones óptimas, mantener prácticas de conservación")
-        if cultivo == "MAÍZ":
-            recomendaciones.append("Para maíz: Considerar fertilización nitrogenada en etapas críticas de crecimiento")
-        elif cultivo == "SOJA":
-            recomendaciones.append("Para soja: Asegurar inoculación adecuada para fijación biológica de nitrógeno")
-        elif cultivo == "TRIGO":
-            recomendaciones.append("Para trigo: Monitorear niveles de nitrógeno en etapas de macollaje y encañado")
+        # === RECOMENDACIONES POR CULTIVO ===
+        if cultivo == "PALMA ACEITERA":
+            recomendaciones.append("Para palma aceitera: Priorizar aplicación de potasio en zonas con deficiencia.")
+            recomendaciones.append("Evitar encharcamientos prolongados: implementar drenaje en zonas planas.")
+        elif cultivo == "CACAO":
+            recomendaciones.append("Para cacao: Mantener cobertura de sombra y alta materia orgánica.")
+            recomendaciones.append("Evitar laboreo intenso: sistema radicular superficial.")
+        elif cultivo == "BANANO":
+            recomendaciones.append("Para banano: Aplicar nitrógeno y potasio en ciclos cortos por alto consumo.")
+            recomendaciones.append("Monitorear drenaje: sensible a anegamiento.")
+        elif cultivo == "CAFÉ":
+            recomendaciones.append("Para café: Mantener cobertura vegetal para reducir erosión en pendientes.")
+            recomendaciones.append("Aplicar enmiendas orgánicas estabilizadas para mantener pH ácido (5.5–6.5).")
         recomendaciones.append("Realizar análisis de suelo de laboratorio para validar resultados satelitales")
         recomendaciones.append("Considerar agricultura de precisión para aplicación variable de insumos")
     except Exception as e:
@@ -1809,7 +1797,7 @@ if 'resultados_guardados' in st.session_state:
     with col_exp1:
         if st.button("🗺️ Exportar GeoJSON", key="export_geojson"):
             geojson_data, nombre_archivo = exportar_a_geojson(res['gdf_analizado'], f"parcela_{res['cultivo']}")
-            if geojson_data:
+            if geojson_
                 st.download_button(
                     label="📥 Descargar GeoJSON",
                     data=geojson_data,
@@ -1910,27 +1898,26 @@ with st.expander("📋 FORMATOS DE ARCHIVO ACEPTADOS"):
         - Siempre en EPSG:4326
         """)
 
-with st.expander("ℹ️ INFORMACIÓN SOBRE LA METODOLOGÍA GEE"):
+with st.expander("ℹ️ INFORMACIÓN SOBRE LA METODOLOGÍA"):
     st.markdown("""
-    **🌱 SISTEMA DE ANÁLISIS MULTI-CULTIVO CON DATOS SATELITALES**
+    **🌱 SISTEMA DE ANÁLISIS MULTI-CULTIVO TROPICAL**
     **🛰️ SATÉLITES SOPORTADOS:**
     - **Sentinel-2:** Alta resolución (10m), revisita 5 días
     - **Landsat-8:** Resolución media (30m), datos históricos
     - **Datos Simulados:** Para pruebas y demostraciones
     **📊 CULTIVOS SOPORTADOS:**
-    - **🌾 TRIGO:** Cereal de clima templado
-    - **🌽 MAÍZ:** Cereal de alta demanda nutricional
-    - **🫘 SOJA:** Leguminosa fijadora de nitrógeno
-    - **🌾 SORGO:** Cereal resistente a sequía
-    - **🌻 GIRASOL:** Oleaginosa de profundas raíces
+    - **🌴 PALMA ACEITERA:** Cultivo perenne con alta demanda de potasio
+    - **🍫 CACAO:** Cultivo de sombra, requiere alta materia orgánica
+    - **🍌 BANANO:** Cultivo exigente en nitrógeno y potasio, sensible a encharcamientos
+    - **☕ CAFÉ:** Cultivo de montaña, sensible a pendientes y pH ácido
     **🚀 FUNCIONALIDADES:**
     - **🌱 Fertilidad Actual:** Estado NPK del suelo usando índices satelitales
-    - **💊 Recomendaciones NPK:** Dosis específicas por cultivo
+    - **💊 Recomendaciones NPK:** Dosis específicas por cultivo tropical
     - **🏗️ Análisis de Textura:** Composición del suelo (arena, limo, arcilla)
     - **🏔️ Curvas de Nivel:** Análisis topográfico con mapa de calor de pendientes
     **🔬 METODOLOGÍA CIENTÍFICA:**
     - Análisis basado en imágenes satelitales
-    - Parámetros específicos para cada cultivo
+    - Parámetros específicos para cultivos tropicales
     - Cálculo de índices de vegetación y suelo
     - Modelos digitales de elevación (DEM) sintéticos
     - Recomendaciones validadas científicamente
