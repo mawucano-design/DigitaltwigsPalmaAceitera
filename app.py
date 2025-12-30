@@ -98,26 +98,16 @@ h1, h2, h3, h4 {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* === PESTAÑAS (tabs): fondo blanco → texto negro === */
-.stTabs [data-baseweb="tab-list"] {
-    background-color: white !important;
-    padding: 8px 16px;
+padding: 8px 16px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     margin-top: 1em;
 }
+
 .stTabs [data-baseweb="tab"] {
-    color: #222222 !important;
-    font-weight: 600;
-    padding: 8px 20px;
-    border-radius: 6px;
-    margin-right: 6px;
-    background: #f8f9fa;
+…    background-color: #e8f5f0 !important;
 }
-.stTabs [data-baseweb="tab"]:hover {
-    color: #0d513d !important;
-    background-color: #e8f5f0 !important;
-}
+
 .stTabs [aria-selected="true"] {
     background-color: #ffffff !important;
     color: #0d513d !important;
