@@ -30,141 +30,125 @@ warnings.filterwarnings('ignore')
 # ========================================
 # ✨ ESTILOS MODERNOS (DARK MODE + DASHBOARD)
 # ========================================
-# ========================================
-# ✨ ESTILOS MODERNOS CON ALTO CONTRASTE (DARK + LIGHT)
-# ========================================
 st.markdown("""
 <style>
-/* === FONDO GENERAL CLARO === */
+/* Fondo de la app */
 .stApp {
-    background-color: #f8f9fa;
-    color: #2c3e50;
+    background-color: #0e1117;
+    color: #e0e0e0;
 }
 
-/* === SIDEBAR: FONDO OSCURO → TEXTO BLANCO === */
+/* Sidebar oscuro */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0a3d2e 0%, #0d513d 100%) !important;
+    background-color: #1a1f25 !important;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
 }
-[data-testid="stSidebar"] *,
-[data-testid="stSidebar"] .stMarkdown,
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] .stText,
-[data-testid="stSidebar"] .stTitle,
-[data-testid="stSidebar"] .stSubheader {
-    color: #ffffff !important;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3) !important;
+
+/* Texto del sidebar */
+[data-testid="stSidebar"] * {
+    color: #e0e0e0 !important;
 }
 
 /* Título del sidebar */
 .sidebar-title {
-    font-size: 1.4em;
+    font-size: 1.5em;
     font-weight: bold;
-    margin-bottom: 1.2em;
+    margin: 1.5em 0 1em 0;
     text-align: center;
-    padding: 0.8em;
-    background: rgba(168, 230, 207, 0.2);
+    padding: 12px;
+    background: rgba(30, 30, 40, 0.6);
     border-radius: 12px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
     color: #ffffff !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* Inputs y selects en sidebar → blanco suave */
-[data-testid="stSidebar"] .stSelectbox,
-[data-testid="stSidebar"] .stDateInput,
+/* Inputs y selects */
+[data-testid="stSidebar"] .stSelectbox div,
+[data-testid="stSidebar"] .stDateInput div,
 [data-testid="stSidebar"] .stSlider label {
-    color: #e0f2e9 !important;
+    color: #c0c0c0 !important;
 }
 
-/* Botones del sidebar → blanco sobre fondo oscuro */
+/* Botones modernos */
 .stButton > button {
-    background: linear-gradient(120deg, #1e7a5d, #0d513d);
+    background: linear-gradient(135deg, #2a4d69, #1a2a6c);
     color: white !important;
     border: none;
-    padding: 0.6em 1.2em;
-    border-radius: 8px;
+    padding: 0.7em 1.4em;
+    border-radius: 10px;
     font-weight: bold;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 10px rgba(26, 42, 108, 0.4);
+    transition: all 0.3s ease;
 }
 .stButton > button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(26, 118, 93, 0.6);
-    background: linear-gradient(120deg, #2a9d8f, #1e7a5d);
+    box-shadow: 0 6px 15px rgba(26, 42, 108, 0.6);
+    background: linear-gradient(135deg, #1a2a6c, #2a4d69);
 }
 
-/* === TÍTULO PRINCIPAL === */
-.main-title-banner h1 {
-    color: white !important;
+/* Métricas estilo tarjeta */
+div[data-testid="metric-container"] {
+    background: rgba(30, 35, 50, 0.7);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(100, 149, 237, 0.3);
+}
+
+/* Títulos */
+h1, h2, h3, h4 {
+    color: #ffffff !important;
+    font-weight: 700 !important;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* === CUERPO PRINCIPAL: FONDO CLARO → TEXTO OSCURO === */
-h1, h2, h3, h4, h5, h6 {
-    color: #0d513d !important;
-}
-
-p, div, span, label {
-    color: #2c3e50 !important;
-}
-
-/* === PESTAÑAS (tabs): fondo claro, texto oscuro, bordes con contraste === */
+/* Pestañas modernas */
 .stTabs [data-baseweb="tab-list"] {
-    background-color: white !important;
-    padding: 8px 16px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    margin-top: 1em;
+    background: rgba(26, 30, 40, 0.8);
+    padding: 12px 20px;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    margin-top: 1.5em;
+    gap: 8px;
 }
 .stTabs [data-baseweb="tab"] {
-    color: #333333 !important;
+    color: #a0a0c0 !important;
     font-weight: 600;
-    padding: 8px 20px;
-    border-radius: 6px;
-    margin-right: 6px;
-    background: #f8f9fa;
+    padding: 10px 22px;
+    border-radius: 10px;
+    background: rgba(40, 45, 60, 0.6);
+    transition: all 0.2s;
 }
 .stTabs [data-baseweb="tab"]:hover {
-    color: #0d513d !important;
-    background-color: #e8f5f0 !important;
+    color: #ffffff !important;
+    background: rgba(60, 70, 90, 0.6);
 }
 .stTabs [aria-selected="true"] {
-    background-color: white !important;
-    color: #0d513d !important;
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #1a2a6c, #2a4d69) !important;
     font-weight: 700;
-    border-bottom: 3px solid #2a9d8f;
+    box-shadow: 0 4px 10px rgba(26, 42, 108, 0.4);
 }
 
-/* === MÉTRICAS (tarjetas): fondo claro, texto oscuro con contraste === */
-div[data-testid="metric-container"] {
-    background: white;
-    border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e0e0e0;
-}
-div[data-testid="metric-container"] label {
-    color: #0d513d !important;
-    font-weight: 600;
-}
-div[data-testid="metric-container"] div {
-    color: #2c3e50 !important;
-    font-size: 1.25em;
-}
-
-/* === GRÁFICOS: fondo blanco, ejes y etiquetas oscuras === */
+/* Gráficos con fondo oscuro */
 .stPlotlyChart, .stPyplot {
-    background: white !important;
+    background: rgba(20, 25, 35, 0.4);
     border-radius: 12px;
     padding: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
 }
 
-/* === EXPANDERS === */
+/* Expander */
 .streamlit-expanderHeader {
-    color: #0d513d !important;
-    background: #e8f5f0 !important;
+    color: #e0e0e0 !important;
+    background: rgba(30, 35, 50, 0.6) !important;
     border-radius: 10px !important;
-    font-weight: 600;
+}
+
+/* Ajuste para pestañas blancas con letras negras */
+div[data-testid="stTabs"] button[kind="secondary"] {
+    background-color: #ffffff !important;
+    color: #000000 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -1156,459 +1140,7 @@ def generar_resumen_estadisticas(gdf_analizado, analisis_tipo, cultivo, df_power
 def generar_recomendaciones_generales(gdf_analizado, analisis_tipo, cultivo):
     recomendaciones = []
     try:
-        if analisis_tipo == "FERTILIDAD ACTUAL":
-            if 'npk_actual' in gdf_analizado.columns:
-                npk_promedio = gdf_analizado['npk_actual'].mean()
-                if npk_promedio < 0.3:
-                    recomendaciones.append("Fertilidad MUY BAJA: Se recomienda aplicación urgente de fertilizantes balanceados")
-                    recomendaciones.append("Considerar enmiendas orgánicas para mejorar la estructura del suelo")
-                elif npk_promedio < 0.5:
-                    recomendaciones.append("Fertilidad BAJA: Recomendada aplicación de fertilizantes según análisis de suelo")
-                elif npk_promedio < 0.7:
-                    recomendaciones.append("Fertilidad ADECUADA: Mantener prácticas de manejo actuales")
-                else:
-                    recomendaciones.append("Fertilidad ÓPTIMA: Excelente condición, continuar con manejo actual")
-        elif analisis_tipo == "ANÁLISIS DE TEXTURA":
-            if 'textura_suelo' in gdf_analizado.columns:
-                textura_predominante = gdf_analizado['textura_suelo'].mode()[0] if len(gdf_analizado) > 0 else "N/D"
-                if textura_predominante == "Arcilloso":
-                    recomendaciones.append("Suelo arcilloso: Mejorar drenaje y evitar laboreo en condiciones húmedas")
-                elif textura_predominante == "Arenoso":
-                    recomendaciones.append("Suelo arenoso: Aumentar materia orgánica y considerar riego frecuente")
-                elif textura_predominante == "Franco":
-                    recomendaciones.append("Textura franca: Condiciones óptimas, mantener prácticas de conservación")
-        # === RECOMENDACIONES POR CULTIVO ===
-        if cultivo == "PALMA ACEITERA":
-            recomendaciones.append("Para palma aceitera: Priorizar aplicación de potasio en zonas con deficiencia.")
-            recomendaciones.append("Evitar encharcamientos prolongados: implementar drenaje en zonas planas.")
-        elif cultivo == "CACAO":
-            recomendaciones.append("Para cacao: Mantener cobertura de sombra y alta materia orgánica.")
-            recomendaciones.append("Evitar laboreo intenso: sistema radicular superficial.")
-        elif cultivo == "BANANO":
-            recomendaciones.append("Para banano: Aplicar nitrógeno y potasio en ciclos cortos por alto consumo.")
-            recomendaciones.append("Monitorear drenaje: sensible a anegamiento.")
-        elif cultivo == "CAFÉ":
-            recomendaciones.append("Para café: Mantener cobertura vegetal para reducir erosión en pendientes.")
-            recomendaciones.append("Aplicar enmiendas orgánicas estabilizadas para mantener pH ácido (5.5–6.5).")
-        recomendaciones.append("Realizar análisis de suelo de laboratorio para validar resultados satelitales")
-        recomendaciones.append("Considerar agricultura de precisión para aplicación variable de insumos")
-    except Exception as e:
-        recomendaciones.append("Error generando recomendaciones específicas")
-    return recomendaciones
-
-def limpiar_texto_para_pdf(texto):
-    if not isinstance(texto, str):
-        texto = str(texto)
-    reemplazos = {
-    '\u2022': '-',          # • → -
-    '\u2705': '[OK]',       # ✅
-    '\u26A0\uFE0F': '[!]',  # ⚠️
-    '\u274C': '[X]',        # ❌
-    '\u2013': '-',          # – → -
-    '\u2014': '--',         # — → --
-    '\u2018': "'",          # ‘
-    '\u2019': "'",          # ’
-    '\u201C': '"',          # “
-    '\u201D': '"',          # ”
-    '\u2192': '->',         # →
-    '\u2190': '<-',         # ←
-    '\u2265': '>=',         # ≥
-    '\u2264': '<=',         # ≤
-    '\u00A0': ' ',          # non-breaking space → espacio normal
-    }
-    for original, reemplazo in reemplazos.items():
-        texto = texto.replace(original, reemplazo)
-    texto = texto.encode('latin-1', errors='replace').decode('latin-1')
-    return texto
-
-def generar_reporte_pdf(gdf_analizado, cultivo, analisis_tipo, area_total,
-nutriente=None, satelite=None, indice=None,
-mapa_buffer=None, estadisticas=None, recomendaciones=None):
-    try:
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.set_font('Arial', '', 12)
-        pdf.set_font('Arial', 'B', 16)
-        pdf.cell(0, 10, limpiar_texto_para_pdf(f'REPORTE DE ANÁLISIS AGRÍCOLA - {cultivo}'), 0, 1, 'C')
-        pdf.set_font('Arial', '', 12)
-        pdf.cell(0, 10, limpiar_texto_para_pdf(f'Tipo de Análisis: {analisis_tipo}'), 0, 1, 'C')
-        pdf.cell(0, 10, limpiar_texto_para_pdf(f'Fecha: {datetime.now().strftime("%d/%m/%Y %H:%M")}'), 0, 1, 'C')
-        pdf.ln(10)
-        pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 10, '1. INFORMACIÓN GENERAL', 0, 1)
-        pdf.set_font('Arial', '', 12)
-        info_general = f"""Cultivo: {cultivo}
-        Área Total: {area_total:.2f} ha
-        Zonas Analizadas: {len(gdf_analizado)}
-        Tipo de Análisis: {analisis_tipo}"""
-        if satelite:
-            info_general += f"\nSatélite: {satelite}"
-        if indice:
-            info_general += f"\nÍndice: {indice}"
-        if nutriente:
-            info_general += f"\nNutriente Analizado: {nutriente}"
-        for linea in info_general.strip().split('\n'):
-            pdf.cell(0, 8, limpiar_texto_para_pdf(linea), 0, 1)
-        pdf.ln(5)
-        if estadisticas:
-            pdf.set_font('Arial', 'B', 14)
-            pdf.cell(0, 10, '2. ESTADÍSTICAS PRINCIPALES', 0, 1)
-            pdf.set_font('Arial', '', 12)
-            for key, value in estadisticas.items():
-                linea = f"- {key}: {value}"
-                pdf.cell(0, 8, limpiar_texto_para_pdf(linea), 0, 1)
-            pdf.ln(5)
-        if mapa_buffer:
-            try:
-                pdf.set_font('Arial', 'B', 14)
-                pdf.cell(0, 10, '3. MAPA DE RESULTADOS', 0, 1)
-                temp_img_path = "temp_map.png"
-                with open(temp_img_path, "wb") as f:
-                    f.write(mapa_buffer.getvalue())
-                pdf.image(temp_img_path, x=10, w=190)
-                pdf.ln(5)
-                if os.path.exists(temp_img_path):
-                    os.remove(temp_img_path)
-            except Exception as e:
-                pdf.cell(0, 8, limpiar_texto_para_pdf(f"Error al incluir mapa: {str(e)[:50]}..."), 0, 1)
-        pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 10, '4. RESUMEN DE ZONAS', 0, 1)
-        pdf.set_font('Arial', '', 10)
-        if gdf_analizado is not None and not gdf_analizado.empty:
-            columnas_mostrar = ['id_zona', 'area_ha']
-            if 'npk_actual' in gdf_analizado.columns:
-                columnas_mostrar.append('npk_actual')
-            if 'valor_recomendado' in gdf_analizado.columns:
-                columnas_mostrar.append('valor_recomendado')
-            if 'textura_suelo' in gdf_analizado.columns:
-                columnas_mostrar.append('textura_suelo')
-            if 'ndwi' in gdf_analizado.columns:
-                columnas_mostrar.append('ndwi')
-            columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
-            if columnas_mostrar:
-                datos_tabla = [columnas_mostrar]
-                for _, row in gdf_analizado.head(15).iterrows():
-                    fila = []
-                    for col in columnas_mostrar:
-                        if col in gdf_analizado.columns:
-                            valor = row[col]
-                            if isinstance(valor, float):
-                                if col in ['npk_actual', 'ndwi']:
-                                    fila.append(f"{valor:.3f}")
-                                else:
-                                    fila.append(f"{valor:.2f}")
-                            else:
-                                fila.append(str(valor))
-                        else:
-                            fila.append("N/A")
-                    datos_tabla.append(fila)
-                col_widths = [190 // len(columnas_mostrar)] * len(columnas_mostrar)
-                for fila in datos_tabla:
-                    for i, item in enumerate(fila):
-                        if i < len(col_widths):
-                            pdf.cell(col_widths[i], 8, limpiar_texto_para_pdf(str(item)), border=1)
-                    pdf.ln()
-                pdf.ln(5)
-        if recomendaciones:
-            pdf.set_font('Arial', 'B', 14)
-            pdf.cell(0, 10, '5. RECOMENDACIONES', 0, 1)
-            pdf.set_font('Arial', '', 12)
-            for rec in recomendaciones:
-                linea = f"- {limpiar_texto_para_pdf(rec)}"
-                pdf.multi_cell(0, 8, linea)
-        pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 10, '6. METADATOS TÉCNICOS', 0, 1)
-        pdf.set_font('Arial', '', 10)
-        metadatos = f"""Generado por: Analizador Multi-Cultivo Satellital
-        Versión: 2.0
-        Fecha de generación: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        Sistema de coordenadas: EPSG:4326 (WGS84)
-        Número de zonas: {len(gdf_analizado)}"""
-        for linea in metadatos.strip().split('\n'):
-            pdf.cell(0, 6, limpiar_texto_para_pdf(linea), 0, 1)
-        pdf_output = BytesIO()
-        pdf_output.write(pdf.output(dest='S').encode('latin-1'))
-        pdf_output.seek(0)
-        return pdf_output
-    except Exception as e:
-        st.error(f"❌ Error generando PDF: {str(e)}")
-        import traceback
-        st.error(f"Detalle: {traceback.format_exc()}")
-        return None
-
-def generar_reporte_docx(gdf_analizado, cultivo, analisis_tipo, area_total,
-nutriente=None, satelite=None, indice=None,
-mapa_buffer=None, estadisticas=None, recomendaciones=None):
-    try:
-        doc = Document()
-        title = doc.add_heading(f'REPORTE DE ANÁLISIS AGRÍCOLA - {cultivo}', 0)
-        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        subtitle = doc.add_paragraph(f'Tipo de Análisis: {analisis_tipo}')
-        subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        fecha = doc.add_paragraph(f'Fecha: {datetime.now().strftime("%d/%m/%Y %H:%M")}')
-        fecha.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        doc.add_paragraph()
-        doc.add_heading('1. INFORMACIÓN GENERAL', level=1)
-        info_table = doc.add_table(rows=4, cols=2)
-        info_table.style = 'Table Grid'
-        info_table.cell(0, 0).text = 'Cultivo'
-        info_table.cell(0, 1).text = cultivo
-        info_table.cell(1, 0).text = 'Área Total'
-        info_table.cell(1, 1).text = f'{area_total:.2f} ha'
-        info_table.cell(2, 0).text = 'Zonas Analizadas'
-        info_table.cell(2, 1).text = str(len(gdf_analizado))
-        info_table.cell(3, 0).text = 'Tipo de Análisis'
-        info_table.cell(3, 1).text = analisis_tipo
-        row_count = 4
-        if satelite:
-            if row_count >= len(info_table.rows):
-                info_table.add_row()
-            info_table.cell(row_count, 0).text = 'Satélite'
-            info_table.cell(row_count, 1).text = satelite
-            row_count += 1
-        if indice:
-            if row_count >= len(info_table.rows):
-                info_table.add_row()
-            info_table.cell(row_count, 0).text = 'Índice'
-            info_table.cell(row_count, 1).text = indice
-            row_count += 1
-        if nutriente:
-            if row_count >= len(info_table.rows):
-                info_table.add_row()
-            info_table.cell(row_count, 0).text = 'Nutriente Analizado'
-            info_table.cell(row_count, 1).text = nutriente
-        doc.add_paragraph()
-        if estadisticas:
-            doc.add_heading('2. ESTADÍSTICAS PRINCIPALES', level=1)
-            for key, value in estadisticas.items():
-                p = doc.add_paragraph(style='List Bullet')
-                run = p.add_run(f'{key}: ')
-                run.bold = True
-                p.add_run(str(value))
-            doc.add_paragraph()
-        if mapa_buffer:
-            try:
-                doc.add_heading('3. MAPA DE RESULTADOS', level=1)
-                temp_img_path = "temp_map_docx.png"
-                with open(temp_img_path, "wb") as f:
-                    f.write(mapa_buffer.getvalue())
-                doc.add_picture(temp_img_path, width=Inches(6.0))
-                if os.path.exists(temp_img_path):
-                    os.remove(temp_img_path)
-                doc.add_paragraph()
-            except Exception as e:
-                doc.add_paragraph(f'Error al incluir mapa: {str(e)[:50]}...')
-        doc.add_heading('4. RESUMEN DE ZONAS', level=1)
-        if gdf_analizado is not None and not gdf_analizado.empty:
-            columnas_mostrar = ['id_zona', 'area_ha']
-            if 'npk_actual' in gdf_analizado.columns:
-                columnas_mostrar.append('npk_actual')
-            if 'valor_recomendado' in gdf_analizado.columns:
-                columnas_mostrar.append('valor_recomendado')
-            if 'textura_suelo' in gdf_analizado.columns:
-                columnas_mostrar.append('textura_suelo')
-            if 'ndwi' in gdf_analizado.columns:
-                columnas_mostrar.append('ndwi')
-            columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
-            if columnas_mostrar:
-                tabla = doc.add_table(rows=1, cols=len(columnas_mostrar))
-                tabla.style = 'Table Grid'
-                for i, col in enumerate(columnas_mostrar):
-                    tabla.cell(0, i).text = col.replace('_', ' ').upper()
-                for idx, row in gdf_analizado.head(10).iterrows():
-                    row_cells = tabla.add_row().cells
-                    for i, col in enumerate(columnas_mostrar):
-                        if col in gdf_analizado.columns:
-                            valor = row[col]
-                            if isinstance(valor, float):
-                                if col in ['npk_actual', 'ndwi']:
-                                    row_cells[i].text = f"{valor:.3f}"
-                                else:
-                                    row_cells[i].text = f"{valor:.2f}"
-                            else:
-                                row_cells[i].text = str(valor)
-                        else:
-                            row_cells[i].text = "N/A"
-        doc.add_paragraph()
-        if recomendaciones:
-            doc.add_heading('5. RECOMENDACIONES', level=1)
-            for rec in recomendaciones:
-                p = doc.add_paragraph(style='List Bullet')
-                p.add_run(rec)
-        doc.add_heading('6. METADATOS TÉCNICOS', level=1)
-        metadatos = [
-        ('Generado por', 'Analizador Multi-Cultivo Satellital'),
-        ('Versión', '2.0'),
-        ('Fecha de generación', datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-        ('Sistema de coordenadas', 'EPSG:4326 (WGS84)'),
-        ('Número de zonas', str(len(gdf_analizado)))
-        ]
-        for key, value in metadatos:
-            p = doc.add_paragraph()
-            run_key = p.add_run(f'{key}: ')
-            run_key.bold = True
-            p.add_run(value)
-        docx_output = BytesIO()
-        doc.save(docx_output)
-        docx_output.seek(0)
-        return docx_output
-    except Exception as e:
-        st.error(f"❌ Error generando DOCX: {str(e)}")
-        import traceback
-        st.error(f"Detalle: {traceback.format_exc()}")
-        return None
-
-# ===== FUNCIÓN PRINCIPAL DE ANÁLISIS (CORREGIDA) =====
-def ejecutar_analisis(gdf, nutriente, analisis_tipo, n_divisiones, cultivo,
-satelite=None, indice=None, fecha_inicio=None,
-fecha_fin=None, intervalo_curvas=5.0, resolucion_dem=10.0):
-    resultados = {
-    'exitoso': False,
-    'gdf_analizado': None,
-    'mapa_buffer': None,
-    'tabla_datos': None,
-    'estadisticas': {},
-    'recomendaciones': [],
-    'area_total': 0,
-    'df_power': None
-    }
-    try:
-        gdf = validar_y_corregir_crs(gdf)
-        area_total = calcular_superficie(gdf)
-        resultados['area_total'] = area_total
-        # === ANÁLISIS DE TEXTURA DEL SUELO ===
-        if analisis_tipo == "ANÁLISIS DE TEXTURA":
-            gdf_dividido = dividir_parcela_en_zonas(gdf, n_divisiones)
-            gdf_analizado = analizar_textura_suelo(gdf_dividido, cultivo)
-            resultados['gdf_analizado'] = gdf_analizado
-            resultados['exitoso'] = True
-            return resultados
-        # === ANÁLISIS DE CURVAS DE NIVEL ===
-        elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
-            gdf_dividido = dividir_parcela_en_zonas(gdf, n_divisiones)
-            resultados['gdf_analizado'] = gdf_dividido
-            resultados['exitoso'] = True
-            return resultados
-        # === ANÁLISIS SATELITAL (FERTILIDAD O NPK) ===
-        elif analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
-            datos_satelitales = None
-            if satelite == "SENTINEL-2":
-                datos_satelitales = descargar_datos_sentinel2(gdf, fecha_inicio, fecha_fin, indice)
-            elif satelite == "LANDSAT-8":
-                datos_satelitales = descargar_datos_landsat8(gdf, fecha_inicio, fecha_fin, indice)
-            else:
-                datos_satelitales = generar_datos_simulados(gdf, cultivo, indice)
-            gdf_dividido = dividir_parcela_en_zonas(gdf, n_divisiones)
-            indices_gee = calcular_indices_satelitales_gee(gdf_dividido, cultivo, datos_satelitales)
-            gdf_analizado = gdf_dividido.copy()
-            for idx, indice_data in enumerate(indices_gee):
-                for key, value in indice_data.items():
-                    gdf_analizado.loc[gdf_analizado.index[idx], key] = value
-            areas_ha_list = []
-            for idx, row in gdf_analizado.iterrows():
-                area_gdf = gpd.GeoDataFrame({'geometry': [row.geometry]}, crs=gdf_analizado.crs)
-                area_ha = calcular_superficie(area_gdf)
-                if hasattr(area_ha, 'iloc'):
-                    area_ha = float(area_ha.iloc[0])
-                elif hasattr(area_ha, '__len__') and len(area_ha) > 0:
-                    area_ha = float(area_ha[0])
-                else:
-                    area_ha = float(area_ha)
-                areas_ha_list.append(area_ha)
-            gdf_analizado['area_ha'] = areas_ha_list
-            if analisis_tipo == "RECOMENDACIONES NPK":
-                recomendaciones_npk = calcular_recomendaciones_npk_gee(indices_gee, nutriente, cultivo)
-                gdf_analizado['valor_recomendado'] = recomendaciones_npk
-            resultados['gdf_analizado'] = gdf_analizado
-            resultados['exitoso'] = True
-            # === DATOS DE NASA POWER ===
-            if satelite:
-                df_power = obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin)
-                if df_power is not None:
-                    resultados['df_power'] = df_power
-            return resultados
-        else:
-            st.error(f"Tipo de análisis no soportado: {analisis_tipo}")
-            return resultados
-    except Exception as e:
-        st.error(f"❌ Error en análisis: {str(e)}")
-        import traceback
-        st.error(f"Detalle: {traceback.format_exc()}")
-        return resultados
-
-# ========================================
-# 📈 FUNCIÓN PARA POTENCIAL DE COSECHA (MAPA DE CALOR)
-# ========================================
-def crear_mapa_potencial_cosecha(gdf_analizado, cultivo):
-    fig, ax = plt.subplots(1, 1, figsize=(12, 7))
-    fig.patch.set_facecolor('#0e1117')
-    ax.set_facecolor('#161c25')
-    
-    cmap = LinearSegmentedColormap.from_list('cosecha', ['#2d001c', '#5e003a', '#8e0058', '#bf0076', '#ff0094', '#ff66b2'])
-    gdf_analizado.plot(
-        column='potencial_cosecha',
-        cmap=cmap,
-        linewidth=1.2,
-        edgecolor='#444466',
-        alpha=0.92,
-        legend=True,
-        ax=ax,
-        legend_kwds={'label': "Potencial de Cosecha", 'orientation': "horizontal", 'shrink': 0.6}
-    )
-    
-    for idx, row in gdf_analizado.iterrows():
-        centroid = row.geometry.centroid
-        ax.annotate(
-            f"Z{row['id_zona']}\n{row['produccion_estimada']:.1f}t",
-            (centroid.x, centroid.y),
-            xytext=(4, 4),
-            textcoords="offset points",
-            fontsize=8,
-            color='white',
-            weight='bold',
-            bbox=dict(boxstyle="round,pad=0.3", facecolor='#000000', alpha=0.7)
-        )
-    
-    ax.set_title(f"🗺️ Mapa de Calor de Potencial de Cosecha - {cultivo}", 
-                 fontsize=16, fontweight='bold', color='white', pad=20)
-    ax.set_xlabel("Longitud", color='#aaaaaa')
-    ax.set_ylabel("Latitud", color='#aaaaaa')
-    ax.tick_params(colors='#888888')
-    ax.grid(True, alpha=0.2, color='#444466')
-    
-    plt.tight_layout()
-    return fig
-
-# ===== FUNCIONES DE VISUALIZACIÓN =====
-def mostrar_resultados_textura(gdf_analizado, cultivo, area_total):
-    st.subheader("📊 ESTADÍSTICAS DE TEXTURA")
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        textura_predominante = gdf_analizado['textura_suelo'].mode()[0] if len(gdf_analizado) > 0 else "NO_DETERMINADA"
-        st.metric("🏗️ Textura Predominante", textura_predominante)
-    with col2:
-        avg_arena = gdf_analizado['arena'].mean()
-        st.metric("🏖️ Arena Promedio", f"{avg_arena:.1f}%")
-    with col3:
-        avg_limo = gdf_analizado['limo'].mean()
-        st.metric("🌫️ Limo Promedio", f"{avg_limo:.1f}%")
-    with col4:
-        avg_arcilla = gdf_analizado['arcilla'].mean()
-        st.metric("🧱 Arcilla Promedio", f"{avg_arcilla:.1f}%")
-    st.subheader("📈 COMPOSICIÓN GRANULOMÉTRICA")
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
-    fig.patch.set_facecolor('#0e1117')
-    ax1.set_facecolor('#161c25')
-    ax2.set_facecolor('#161c25')
-    composicion = [gdf_analizado['arena'].mean(), gdf_analizado['limo'].mean(), gdf_analizado['arcilla'].mean()]
-    labels = ['Arena', 'Limo', 'Arcilla']
-    colors_pie = ['#d8b365', '#f6e8c3', '#01665e']
-    ax1.pie(composicion, labels=labels, colors=colors_pie, autopct='%1.1f%%', startangle=90)
-    ax1.set_title('Composición Promedio del Suelo', color='white')
-    textura_dist = gdf_analizado['textura_suelo'].value_counts()
-    ax2.bar(textura_dist.index, textura_dist.values, color=[PALETAS_GEE['TEXTURA'][i % len(PALETAS_GEE['TEXTURA'])] for i in range(len(textura_dist))])
-    ax2.set_title('Distribución de Texturas', color='white')
+        if analisis_tipo == "FERTILI...(truncated 22116 characters)... Texturas', color='white')
     ax2.set_xlabel('Textura', color='white')
     ax2.set_ylabel('Número de Zonas', color='white')
     ax2.tick_params(axis='x', colors='white', rotation=45)
@@ -1908,7 +1440,7 @@ if uploaded_file:
                                     st.metric("💨 Viento a 2m", f"{df_power['viento_2m'].mean():.2f} m/s")
                                 with col7:
                                     st.metric("💧 NDWI Promedio", f"{gdf_analizado['ndwi'].mean():.3f}")
-                                # === PESTAÑAS CON NUEVA PESTAÑA DE POTENCIAL DE COSECHA ===
+                                # === === PESTAÑAS CON NUEVA PESTAÑA DE POTENCIAL DE COSECHA ===
                                 tab_radiacion, tab_viento, tab_precip, tab_cosecha = st.tabs([
                                 "☀️ Radiación Solar",
                                 "💨 Velocidad del Viento",
@@ -2303,49 +1835,4 @@ with st.expander("📋 FORMATOS DE ARCHIVO ACEPTADOS"):
         - Usado por Google Earth
         - Contiene geometrías y atributos
         - Puede incluir estilos y colores
-        - Siempre en EPSG:4326
-        """)
-    with col3:
-        st.markdown("**📦 KMZ (.kmz)**")
-        st.markdown("""
-        - Versión comprimida de KML
-        - Archivo ZIP con extensión .kmz
-        - Puede incluir recursos (imágenes, etc.)
-        - Compatible con Google Earth
-        - Siempre en EPSG:4326
-        """)
-
-with st.expander("ℹ️ INFORMACIÓN SOBRE LA METODOLOGÍA"):
-    st.markdown("""
-    **🌱 SISTEMA DE ANÁLISIS MULTI-CULTIVO TROPICAL**
-    **🛰️ SATÉLITES SOPORTADOS:**
-    - **Sentinel-2:** Alta resolución (10m), revisita 5 días
-    - **Landsat-8:** Resolución media (30m), datos históricos
-    - **Datos Simulados:** Para pruebas y demostraciones
-    **📊 CULTIVOS SOPORTADOS:**
-    - **🌴 PALMA ACEITERA:** Cultivo perenne con alta demanda de potasio
-    - **🍫 CACAO:** Cultivo de sombra, requiere alta materia orgánica
-    - **🍌 BANANO:** Cultivo exigente en nitrógeno y potasio, sensible a encharcamientos
-    - **☕ CAFÉ:** Cultivo de montaña, sensible a pendientes y pH ácido
-    **🚀 FUNCIONALIDADES:**
-    - **🌱 Fertilidad Actual:** Estado NPK del suelo usando índices satelitales
-    - **💧 NDWI (Humedad):** Índice de Agua en Vegetación/Suelo
-    - **☀️ Radiación Solar:** Datos de NASA POWER (kWh/m²/día)
-    - **💨 Velocidad del Viento:** Datos de NASA POWER (m/s)
-    - **💧 Precipitación:** Datos de NASA POWER (mm/día)
-    - **💊 Recomendaciones NPK:** Dosis específicas por cultivo tropical
-    - **🏗️ Análisis de Textura:** Composición del suelo (arena, limo, arcilla)
-    - **🏔️ Curvas de Nivel:** Análisis topográfico con mapa de calor de pendientes
-    **🔬 METODOLOGÍA CIENTÍFICA:**
-    - Análisis basado en imágenes satelitales
-    - Integración con datos meteorológicos de NASA POWER
-    - Parámetros específicos para cultivos tropicales
-    - Cálculo de índices de vegetación y suelo
-    - Modelos digitales de elevación (DEM) sintéticos
-    - Recomendaciones validadas científicamente
-    **💡 CONSEJOS:**
-    - Para mejores resultados, usa archivos en coordenadas EPSG:4326 (WGS84)
-    - Los archivos KML deben contener polígonos (no puntos o líneas)
-    - El área recomendada es entre 1 y 1000 hectáreas
-    - Todos los cálculos se realizan en EPSG:4326
-    """)
+        - Siempre en
