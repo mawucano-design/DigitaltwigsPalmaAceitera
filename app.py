@@ -29,65 +29,92 @@ warnings.filterwarnings('ignore')
 # === ESTILOS PERSONALIZADOS CON ALTO CONTRASTE ===
 st.markdown("""
 <style>
-/* Fondo general */
+/* Fondo general de la app */
 .stApp {
-    background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+    background: linear-gradient(135deg, #f0f8f5 0%, #e6f2ed 100%);
 }
 
-/* Sidebar mejorado con mejor contraste */
+/* === SIDEBAR: Fondo verde oscuro y letras verde agua === */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #1a2a6c 0%, #2a4d69 100%);
-    color: white;
+    background: linear-gradient(180deg, #0a3d2e 0%, #0d513d 100%) !important;
+    color: #a8e6cf !important;
 }
+
 [data-testid="stSidebar"] * {
-    color: #ffffff !important;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+    color: #a8e6cf !important;
 }
+
 .sidebar-title {
     font-size: 1.4em;
     font-weight: bold;
     margin-bottom: 1.2em;
     text-align: center;
     padding: 0.8em;
-    background: rgba(255,255,255,0.15);
+    background: rgba(168, 230, 207, 0.2); /* verde agua transparente */
     border-radius: 12px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    color: white !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    color: #a8e6cf !important;
 }
 
-/* Botones con mejor contraste */
+/* Botones en sidebar */
 .stButton > button {
-    background: linear-gradient(120deg, #3498db, #2980b9);
-    color: white !important;
+    background: linear-gradient(120deg, #1e7a5d, #0d513d);
+    color: #ffffff !important;
     border: none;
     padding: 0.6em 1.2em;
     border-radius: 8px;
     font-weight: bold;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 .stButton > button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.6);
-    background: linear-gradient(120deg, #2980b9, #1a5276);
+    box-shadow: 0 4px 12px rgba(26, 118, 93, 0.5);
+    background: linear-gradient(120deg, #2a9d8f, #1e7a5d);
 }
 
-/* Títulos con mejor visibilidad */
-h1, h2, h3, h4, h5, h6 {
-    color: #1a2a6c !important;
-    font-weight: 700 !important;
-    text-shadow: none !important;
-}
-
-/* Inputs y selects en sidebar */
-[data-testid="stSidebar"] .stSelectbox div, 
+/* Inputs, selects y sliders en sidebar */
+[data-testid="stSidebar"] .stSelectbox div,
 [data-testid="stSidebar"] .stDateInput div,
 [data-testid="stSidebar"] .stSlider label {
-    color: #f0f8ff !important;
+    color: #c1f0e0 !important;
+}
+
+/* Títulos principales */
+h1, h2, h3 {
+    color: #0d513d !important;
+    font-weight: 700 !important;
+}
+
+/* === PESTAÑAS (st.tabs): fondo blanco, texto negro === */
+.stTabs [data-baseweb="tab-list"] {
+    background-color: white !important;
+    padding: 8px 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stTabs [data-baseweb="tab"] {
+    color: #333333 !important;
+    font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 6px;
+    margin-right: 6px;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    color: #0d513d !important;
+    background-color: #f0f8f5 !important;
+}
+
+.stTabs [aria-selected="true"] {
+    background-color: #ffffff !important;
+    color: #0d513d !important;
+    font-weight: 700;
+    border-bottom: 3px solid #2a9d8f;
 }
 </style>
 """, unsafe_allow_html=True)
-
 # CONFIGURACIÓN DE PÁGINA - DEBE SER LO PRIMERO
 st.set_page_config(
     page_title="🌱 Analizador Multi-Cultivo Satellital",
