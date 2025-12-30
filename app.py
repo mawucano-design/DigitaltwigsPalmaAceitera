@@ -989,23 +989,32 @@ def generar_dem_sintetico(gdf, resolucion=10.0):
     gdf = validar_y_corregir_crs(gdf)
     bounds = gdf.total_bounds
     minx, miny, maxx, maxy = bounds
+
+    # ✅ SEMILLA DETERMINISTA basada en la geometría del lote
+    centroid = gdf.geometry.unary_union.centroid
+    seed_value = abs(hash(f"{centroid.x:.6f}_{centroid.y:.6f}_{resolucion}")) % (2**32)
+    rng = np.random.RandomState(seed_value)
+
     num_cells = 50
     x = np.linspace(minx, maxx, num_cells)
     y = np.linspace(miny, maxy, num_cells)
     X, Y = np.meshgrid(x, y)
-    elevacion_base = np.random.uniform(100, 300)
-    slope_x = np.random.uniform(-0.001, 0.001)
-    slope_y = np.random.uniform(-0.001, 0.001)
+
+    elevacion_base = rng.uniform(100, 300)
+    slope_x = rng.uniform(-0.001, 0.001)
+    slope_y = rng.uniform(-0.001, 0.001)
     relief = np.zeros_like(X)
-    n_hills = np.random.randint(2, 5)
+
+    n_hills = rng.randint(2, 5)
     for _ in range(n_hills):
-        hill_center_x = np.random.uniform(minx, maxx)
-        hill_center_y = np.random.uniform(miny, maxy)
-        hill_radius = np.random.uniform(0.001, 0.005)
-        hill_height = np.random.uniform(10, 50)
+        hill_center_x = rng.uniform(minx, maxx)
+        hill_center_y = rng.uniform(miny, maxy)
+        hill_radius = rng.uniform(0.001, 0.005)
+        hill_height = rng.uniform(10, 50)
         dist = np.sqrt((X - hill_center_x)**2 + (Y - hill_center_y)**2)
         relief += hill_height * np.exp(-(dist**2) / (2 * hill_radius**2))
-    noise = np.random.randn(*X.shape) * 2
+
+    noise = rng.randn(*X.shape) * 2
     Z = elevacion_base + slope_x * (X - minx) + slope_y * (Y - miny) + relief + noise
     Z = np.maximum(Z, 50)
     return X, Y, Z, bounds
