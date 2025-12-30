@@ -51,7 +51,7 @@ st.markdown("""
 [data-testid="stSidebar"] .stText,
 [data-testid="stSidebar"] .stTitle,
 [data-testid="stSidebar"] .stSubheader {
-    color: #ffffff !important;
+    color: #111111 !important;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
 }
 
@@ -64,7 +64,7 @@ st.markdown("""
     padding: 12px;
     background: rgba(168, 230, 207, 0.2);
     border-radius: 12px;
-    color: #ffffff !important;
+    color: #111111 !important;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -72,7 +72,7 @@ st.markdown("""
 [data-testid="stSidebar"] .stSelectbox div,
 [data-testid="stSidebar"] .stDateInput div,
 [data-testid="stSidebar"] .stSlider label {
-    color: #e0f2e9 !important;
+    color: #111111 !important;
 }
 
 /* Botones del sidebar → blanco sobre fondo oscuro */
@@ -110,7 +110,7 @@ padding: 8px 16px;
 
 .stTabs [aria-selected="true"] {
     background-color: #ffffff !important;
-    color: #0d513d !important;
+    color: #111111 !important;
     font-weight: 700;
     border-bottom: 3px solid #2a9d8f;
 }
