@@ -703,7 +703,6 @@ def obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin):
         url = "https://power.larc.nasa.gov/api/temporal/daily/point"
         response = requests.get(url, params=params, timeout=15)
         data = response.json()
-        # ✅ CORRECCIÓN: se añade `data` después de `not in`
         if 'properties' not in data:
             st.warning("⚠️ No se obtuvieron datos de NASA POWER (fuera de rango o sin conexión).")
             return None
@@ -724,6 +723,9 @@ def obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin):
     except Exception as e:
         st.error(f"❌ Error al obtener datos de NASA POWER: {str(e)}")
         return None
+
+# [FUNCIONES DE ANÁLISIS GEE, TEXTURA, CURVAS, EXPORTACIÓN...]
+# (Incluidas en el archivo completo abajo)
 
 # ===== FUNCIONES DE ANÁLISIS GEE =====
 def calcular_indices_satelitales_gee(gdf, cultivo, datos_satelitales):
@@ -750,8 +752,7 @@ def calcular_indices_satelitales_gee(gdf, cultivo, datos_satelitales):
         base_humedad = params['HUMEDAD_OPTIMA'] * 0.8
         variabilidad_humedad = patron_espacial * (params['HUMEDAD_OPTIMA'] * 0.4)
         humedad_suelo = base_humedad + variabilidad_humedad + np.random.normal(0, 0.05)
-        humedad_suelo = max(0.1, min(0.8, humedad_suelo)
-)
+        humedad_suelo = max(0.1, min(0.8, humedad_suelo))
         ndvi_base = valor_base_satelital * 0.8
         ndvi_variacion = patron_espacial * (valor_base_satelital * 0.4)
         ndvi = ndvi_base + ndvi_variacion + np.random.normal(0, 0.06)
@@ -1780,20 +1781,128 @@ if uploaded_file:
                                 with col7:
                                     st.metric("💧 NDWI Promedio", f"{gdf_analizado['ndwi'].mean():.3f}")
 
-                                # === PESTAÑAS DETALLADAS ===
+                                # === PESTAÑAS DETALLADAS CON DASHBOARDS ===
                                 tab_radiacion, tab_viento, tab_precip = st.tabs(["☀️ Radiación Solar", "💨 Velocidad del Viento", "🌧️ Precipitación"])
 
+                                def crear_grafico_personalizado(series, titulo, ylabel, color_linea, fondo_grafico='#f8f9fa', color_texto='#2c3e50'):
+                                    fig, ax = plt.subplots(figsize=(10, 4))
+                                    ax.set_facecolor(fondo_grafico)
+                                    fig.patch.set_facecolor(fondo_grafico)
+                                    ax.plot(series.index, series.values, color=color_linea, linewidth=2.2)
+                                    ax.set_title(titulo, fontsize=14, fontweight='bold', color=color_texto)
+                                    ax.set_ylabel(ylabel, fontsize=12, color=color_texto)
+                                    ax.set_xlabel("Fecha", fontsize=11, color=color_texto)
+                                    ax.tick_params(axis='x', colors=color_texto, rotation=0)
+                                    ax.tick_params(axis='y', colors=color_texto)
+                                    ax.grid(True, color='#cbd5e0', linestyle='--', linewidth=0.7, alpha=0.7)
+                                    for spine in ax.spines.values():
+                                        spine.set_color('#cbd5e0')
+                                    plt.tight_layout()
+                                    return fig
+
+                                def crear_grafico_barras_personalizado(series, titulo, ylabel, color_barra, fondo_grafico='#f8f9fa', color_texto='#2c3e50'):
+                                    fig, ax = plt.subplots(figsize=(10, 4))
+                                    ax.set_facecolor(fondo_grafico)
+                                    fig.patch.set_facecolor(fondo_grafico)
+                                    ax.bar(series.index, series.values, color=color_barra, alpha=0.85)
+                                    ax.set_title(titulo, fontsize=14, fontweight='bold', color=color_texto)
+                                    ax.set_ylabel(ylabel, fontsize=12, color=color_texto)
+                                    ax.set_xlabel("Fecha", fontsize=11, color=color_texto)
+                                    ax.tick_params(axis='x', colors=color_texto, rotation=0)
+                                    ax.tick_params(axis='y', colors=color_texto)
+                                    ax.grid(axis='y', color='#cbd5e0', linestyle='--', linewidth=0.7, alpha=0.7)
+                                    for spine in ax.spines.values():
+                                        spine.set_color('#cbd5e0')
+                                    plt.tight_layout()
+                                    return fig
+
+                                # === PESTAÑA: RADIACIÓN SOLAR ===
                                 with tab_radiacion:
-                                    st.line_chart(df_power.set_index('fecha')['radiacion_solar'], use_container_width=True)
-                                    st.caption("Radiación solar diaria promedio en kWh/m²/día")
+                                    serie_rad = df_power.set_index('fecha')['radiacion_solar']
+                                    prom_rad = serie_rad.mean()
+                                    max_rad = serie_rad.max()
+                                    min_rad = serie_rad.min()
+                                    # Interpretación simple
+                                    if prom_rad > 5.5:
+                                        interpretacion = "☀️ **Alta radiación**: Condiciones óptimas para fotosíntesis en cultivos tropicales."
+                                    elif prom_rad > 4.0:
+                                        interpretacion = "🌤️ **Radiación moderada**: Adecuada para la mayoría de cultivos, con posible limitación en días nublados."
+                                    else:
+                                        interpretacion = "☁️ **Radiación baja**: Puede limitar el crecimiento; vigilar desarrollo vegetativo."
 
+                                    col_r1, col_r2, col_r3 = st.columns(3)
+                                    with col_r1:
+                                        st.metric("Promedio", f"{prom_rad:.1f} kWh/m²/día")
+                                    with col_r2:
+                                        st.metric("Máximo", f"{max_rad:.1f}")
+                                    with col_r3:
+                                        st.metric("Mínimo", f"{min_rad:.1f}")
+
+                                    st.pyplot(crear_grafico_personalizado(
+                                        serie_rad,
+                                        "Evolución Diaria de Radiación Solar",
+                                        "Radiación (kWh/m²/día)",
+                                        color_linea='#e67e22'
+                                    ))
+                                    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
+
+                                # === PESTAÑA: VIENTO ===
                                 with tab_viento:
-                                    st.line_chart(df_power.set_index('fecha')['viento_2m'], use_container_width=True)
-                                    st.caption("Velocidad del viento a 2m de altura (m/s)")
+                                    serie_viento = df_power.set_index('fecha')['viento_2m']
+                                    prom_viento = serie_viento.mean()
+                                    max_viento = serie_viento.max()
+                                    min_viento = serie_viento.min()
+                                    if prom_viento < 2.0:
+                                        interpretacion = "🍃 **Viento suave**: Bajo riesgo de estrés mecánico o deshidratación."
+                                    elif prom_viento < 4.0:
+                                        interpretacion = "🌬️ **Viento moderado**: Aceptable; monitorear en etapas sensibles (floración, fruto joven)."
+                                    else:
+                                        interpretacion = "💨 **Viento fuerte**: Alto riesgo de daño mecánico, aumento de evapotranspiración y posible caída de frutos."
 
+                                    col_w1, col_w2, col_w3 = st.columns(3)
+                                    with col_w1:
+                                        st.metric("Promedio", f"{prom_viento:.2f} m/s")
+                                    with col_w2:
+                                        st.metric("Máximo", f"{max_viento:.2f}")
+                                    with col_w3:
+                                        st.metric("Mínimo", f"{min_viento:.2f}")
+
+                                    st.pyplot(crear_grafico_personalizado(
+                                        serie_viento,
+                                        "Evolución Diaria de Velocidad del Viento",
+                                        "Viento a 2m (m/s)",
+                                        color_linea='#3498db'
+                                    ))
+                                    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
+
+                                # === PESTAÑA: PRECIPITACIÓN ===
                                 with tab_precip:
-                                    st.bar_chart(df_power.set_index('fecha')['precipitacion'], use_container_width=True)
-                                    st.caption("Precipitación diaria corregida (mm/día)")
+                                    serie_precip = df_power.set_index('fecha')['precipitacion']
+                                    prom_precip = serie_precip.mean()
+                                    total_precip = serie_precip.sum()
+                                    dias_lluvia = (serie_precip > 0.1).sum()
+                                    if prom_precip > 8:
+                                        interpretacion = "🌧️ **Precipitación alta**: Riesgo de encharcamiento y lixiviación de nutrientes. Asegurar drenaje."
+                                    elif prom_precip > 3:
+                                        interpretacion = "💧 **Precipitación adecuada**: Condiciones hídricas favorables para cultivos tropicales."
+                                    else:
+                                        interpretacion = "🏜️ **Precipitación baja**: Posible déficit hídrico; considerar riego suplementario."
+
+                                    col_p1, col_p2, col_p3 = st.columns(3)
+                                    with col_p1:
+                                        st.metric("Total", f"{total_precip:.1f} mm")
+                                    with col_p2:
+                                        st.metric("Promedio", f"{prom_precip:.1f} mm/día")
+                                    with col_p3:
+                                        st.metric("Días con lluvia", f"{dias_lluvia}")
+
+                                    st.pyplot(crear_grafico_barras_personalizado(
+                                        serie_precip,
+                                        "Precipitación Diaria",
+                                        "Precipitación (mm/día)",
+                                        color_barra='#2ecc71'
+                                    ))
+                                    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
 
                             def crear_mapa_estatico(gdf, titulo, columna_valor, analisis_tipo, nutriente, cultivo, satelite):
                                 try:
@@ -2018,6 +2127,7 @@ with st.expander("ℹ️ INFORMACIÓN SOBRE LA METODOLOGÍA"):
     - **💧 NDWI (Humedad):** Índice de Agua en Vegetación/Suelo
     - **☀️ Radiación Solar:** Datos de NASA POWER (kWh/m²/día)
     - **💨 Velocidad del Viento:** Datos de NASA POWER (m/s)
+    - **💧 Precipitación:** Datos de NASA POWER (mm/día)
     - **💊 Recomendaciones NPK:** Dosis específicas por cultivo tropical
     - **🏗️ Análisis de Textura:** Composición del suelo (arena, limo, arcilla)
     - **🏔️ Curvas de Nivel:** Análisis topográfico con mapa de calor de pendientes
