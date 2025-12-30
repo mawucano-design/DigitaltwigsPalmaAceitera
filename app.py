@@ -29,50 +29,89 @@ warnings.filterwarnings('ignore')
 # === ESTILOS PERSONALIZADOS PARA INTERFAZ MEJORADA ===
 st.markdown("""
 <style>
-/* Fondo general */
+/* Fondo general limpio */
 .stApp {
-background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+    background: white;
 }
-/* Sidebar mejorado */
+
+/* SIDEBAR: fondo blanco, texto negro */
 [data-testid="stSidebar"] {
-background: linear-gradient(180deg, #1a2a6c 0%, #2a4d69 100%);
-color: white;
+    background: white !important;
 }
 [data-testid="stSidebar"] * {
-color: white !important;
+    color: black !important;
+    text-shadow: none !important;
 }
+
 .sidebar-title {
-font-size: 1.4em;
-font-weight: bold;
-margin-bottom: 1.2em;
-text-align: center;
-padding: 0.8em;
-background: rgba(255,255,255,0.1);
-border-radius: 12px;
-box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    font-size: 1.4em;
+    font-weight: bold;
+    margin-bottom: 1.2em;
+    text-align: center;
+    padding: 0.8em;
+    background: #f0f0f0;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    color: black !important;
 }
-/* Botones */
+
+/* Inputs y selects en sidebar */
+[data-testid="stSidebar"] .stSelectbox div,
+[data-testid="stSidebar"] .stDateInput div,
+[data-testid="stSidebar"] .stSlider label {
+    color: black !important;
+}
+
+/* Botones con alto contraste */
 .stButton > button {
-background: linear-gradient(120deg, #2a4d69, #1a2a6c);
-color: white;
-border: none;
-padding: 0.6em 1.2em;
-border-radius: 8px;
-font-weight: bold;
-transition: all 0.3s ease;
+    background: #2c3e50;
+    color: white !important;
+    border: none;
+    padding: 0.6em 1.2em;
+    border-radius: 8px;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 .stButton > button:hover {
-transform: translateY(-2px);
-box-shadow: 0 4px 12px rgba(26, 42, 108, 0.4);
+    background: #1a252f;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
-/* Títulos */
-h1, h2, h3 {
-color: #1a2a6c !important;
-font-weight: 700 !important;
+
+/* Títulos en negro */
+h1, h2, h3, h4, h5, h6 {
+    color: black !important;
+    font-weight: 700 !important;
+    text-shadow: none !important;
+}
+
+/* PESTAÑAS: fondo blanco, texto negro */
+.stTabs [data-baseweb="tab-list"] {
+    background-color: white !important;
+    padding: 8px 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    margin-top: 1em;
+}
+.stTabs [data-baseweb="tab"] {
+    color: black !important;
+    font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 6px;
+    margin-right: 6px;
+}
+.stTabs [data-baseweb="tab"]:hover {
+    color: #2c3e50 !important;
+    background-color: #f8f9fa !important;
+}
+.stTabs [aria-selected="true"] {
+    background-color: white !important;
+    color: #2c3e50 !important;
+    font-weight: 700;
+    border-bottom: 3px solid #3498db;
 }
 </style>
 """, unsafe_allow_html=True)
-
 # CONFIGURACIÓN DE PÁGINA - DEBE SER LO PRIMERO
 st.set_page_config(
 page_title="🌱 Analizador Multi-Cultivo Satellital",
