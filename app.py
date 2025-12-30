@@ -24,6 +24,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 import geojson
 import requests
+import contextily as ctx
 warnings.filterwarnings('ignore')
 
 # === ESTILOS PERSONALIZADOS CON ALTO CONTRASTE ===
@@ -159,6 +160,7 @@ p, div, span, label {
 }
 </style>
 """, unsafe_allow_html=True)
+
 # CONFIGURACIÓN DE PÁGINA - DEBE SER LO PRIMERO
 st.set_page_config(
     page_title="🌱 Analizador Multi-Cultivo Satellital",
@@ -280,6 +282,7 @@ TEXTURA_SUELO_OPTIMA = {
         'porosidad_optima': 0.65
     }
 }
+
 # CLASIFICACIÓN DE PENDIENTES
 CLASIFICACION_PENDIENTES = {
     'PLANA (0-2%)': {'min': 0, 'max': 2, 'color': '#4daf4a', 'factor_erosivo': 0.1},
@@ -290,7 +293,7 @@ CLASIFICACION_PENDIENTES = {
     'EXTREMA (>25%)': {'min': 25, 'max': 100, 'color': '#d73027', 'factor_erosivo': 1.0}
 }
 
-# RECOMENDACIONES POR TIPO DE TEXTURA
+# RECOMENDACIONES POR TIPO DE TEXTURA - ACTUALIZADO A NOMENCLATURA VENEZUELA/COLOMBIA
 RECOMENDACIONES_TEXTURA = {
     'Franco': {
         'propiedades': [
@@ -310,7 +313,7 @@ RECOMENDACIONES_TEXTURA = {
             "Ideal para densidad estándar 9 x 9 m."
         ]
     },
-    'Franco Arcilloso': {
+    'Franco arcilloso': {
         'propiedades': [
             "Mayor proporción de arcilla (25–35%)",
             "Alta retención de agua y nutrientes",
@@ -329,7 +332,7 @@ RECOMENDACIONES_TEXTURA = {
             "Fertilización fraccionada en lluvias intensas"
         ]
     },
-    'Franco Arcilloso-Arenoso': {
+    'Franco arenoso-arcilloso': {
         'propiedades': [
             "Arena 40–50%, arcilla 20–30%",
             "Buen desarrollo radicular",
@@ -349,6 +352,7 @@ RECOMENDACIONES_TEXTURA = {
         ]
     }
 }
+
 # ICONOS Y COLORES POR CULTIVO
 ICONOS_CULTIVOS = {
     'PALMA ACEITERA': '🌴',
@@ -356,6 +360,7 @@ ICONOS_CULTIVOS = {
     'BANANO': '🍌',
     'CAFÉ': '☕'
 }
+
 COLORES_CULTIVOS = {
     'PALMA ACEITERA': '#228B22',
     'CACAO': '#654321',
@@ -830,7 +835,7 @@ def calcular_recomendaciones_npk_gee(indices, nutriente, cultivo):
             recomendaciones.append(round(k_recomendado, 1))
     return recomendaciones
 
-# ===== FUNCIONES DE TEXTURA DEL SUELO - CORREGIDAS =====
+# ===== FUNCIONES DE TEXTURA DEL SUELO - ACTUALIZADAS CON NUEVA NOMENCLATURA =====
 def clasificar_textura_suelo(arena, limo, arcilla):
     try:
         total = arena + limo + arcilla
@@ -839,16 +844,20 @@ def clasificar_textura_suelo(arena, limo, arcilla):
         arena_norm = (arena / total) * 100
         limo_norm = (limo / total) * 100
         arcilla_norm = (arcilla / total) * 100
+        
+        # Nomenclatura actualizada Venezuela/Colombia
         if arcilla_norm >= 35:
-            return "Arcilloso"
+            return "Franco arcilloso"
         elif arcilla_norm >= 25 and arcilla_norm <= 35 and arena_norm >= 20 and arena_norm <= 45:
-            return "Franco Arcilloso"
+            return "Franco arcilloso"
+        elif arena_norm >= 40 and arena_norm <= 50 and arcilla_norm >= 20 and arcilla_norm <= 30:
+            return "Franco arenoso-arcilloso"
         elif arena_norm >= 50 and arena_norm <= 70 and arcilla_norm >= 5 and arcilla_norm <= 20:
-            return "Franco Arenoso"
+            return "Franco arenoso-arcilloso"
         elif arcilla_norm >= 7 and arcilla_norm <= 27 and arena_norm >= 43 and arena_norm <= 52:
             return "Franco"
         elif arena_norm >= 85:
-            return "Arenoso"
+            return "Franco arenoso-arcilloso"
         else:
             return "Franco"
     except Exception as e:
@@ -1127,10 +1136,10 @@ def generar_recomendaciones_generales(gdf_analizado, analisis_tipo, cultivo):
         elif analisis_tipo == "ANÁLISIS DE TEXTURA":
             if 'textura_suelo' in gdf_analizado.columns:
                 textura_predominante = gdf_analizado['textura_suelo'].mode()[0] if len(gdf_analizado) > 0 else "N/D"
-                if textura_predominante == "Arcilloso":
-                    recomendaciones.append("Suelo arcilloso: Mejorar drenaje y evitar laboreo en condiciones húmedas")
-                elif textura_predominante == "Arenoso":
-                    recomendaciones.append("Suelo arenoso: Aumentar materia orgánica y considerar riego frecuente")
+                if textura_predominante == "Franco arcilloso":
+                    recomendaciones.append("Suelo franco arcilloso: Mejorar drenaje y evitar laboreo en condiciones húmedas")
+                elif textura_predominante == "Franco arenoso-arcilloso":
+                    recomendaciones.append("Suelo franco arenoso-arcilloso: Aumentar materia orgánica y considerar riego frecuente")
                 elif textura_predominante == "Franco":
                     recomendaciones.append("Textura franca: Condiciones óptimas, mantener prácticas de conservación")
         # === RECOMENDACIONES POR CULTIVO ===
@@ -1164,8 +1173,8 @@ def limpiar_texto_para_pdf(texto):
         '\u2014': '--',         # — → --
         '\u2018': "'",          # ‘
         '\u2019': "'",          # ’
-        '\u201C': '"',          # “
-        '\u201D': '"',          # ”
+        '\u201C': '"',          # "
+        '\u201D': '"',          # "
         '\u2192': '->',         # →
         '\u2190': '<-',         # ←
         '\u2265': '>=',         # ≥
@@ -1415,6 +1424,201 @@ def generar_reporte_docx(gdf_analizado, cultivo, analisis_tipo, area_total,
         st.error(f"Detalle: {traceback.format_exc()}")
         return None
 
+# ===== FUNCIONES DE VISUALIZACIÓN MEJORADAS CON MAPAS ESRI =====
+def crear_mapa_estatico_con_esri(gdf, titulo, columna_valor, analisis_tipo, nutriente, cultivo, satelite):
+    """Crea mapa estático con fondo ESRI Satellite"""
+    try:
+        # Convertir a Web Mercator para el mapa base
+        gdf_plot = gdf.to_crs(epsg=3857)
+        
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+        
+        if analisis_tipo == "FERTILIDAD ACTUAL":
+            cmap = LinearSegmentedColormap.from_list('fertilidad_gee', PALETAS_GEE['FERTILIDAD'])
+            vmin, vmax = 0, 1
+        else:
+            if nutriente == "NITRÓGENO":
+                cmap = LinearSegmentedColormap.from_list('nitrogeno_gee', PALETAS_GEE['NITROGENO'])
+                vmin, vmax = (PARAMETROS_CULTIVOS[cultivo]['NITROGENO']['min'] * 0.8,
+                              PARAMETROS_CULTIVOS[cultivo]['NITROGENO']['max'] * 1.2)
+            elif nutriente == "FÓSFORO":
+                cmap = LinearSegmentedColormap.from_list('fosforo_gee', PALETAS_GEE['FOSFORO'])
+                vmin, vmax = (PARAMETROS_CULTIVOS[cultivo]['FOSFORO']['min'] * 0.8,
+                              PARAMETROS_CULTIVOS[cultivo]['FOSFORO']['max'] * 1.2)
+            else:
+                cmap = LinearSegmentedColormap.from_list('potasio_gee', PALETAS_GEE['POTASIO'])
+                vmin, vmax = (PARAMETROS_CULTIVOS[cultivo]['POTASIO']['min'] * 0.8,
+                              PARAMETROS_CULTIVOS[cultivo]['POTASIO']['max'] * 1.2)
+        
+        # Plot de las zonas con colores según valor
+        for idx, row in gdf_plot.iterrows():
+            valor = row[columna_valor]
+            valor_norm = (valor - vmin) / (vmax - vmin) if vmax != vmin else 0.5
+            valor_norm = max(0, min(1, valor_norm))
+            color = cmap(valor_norm)
+            gdf_plot.iloc[[idx]].plot(ax=ax, color=color, edgecolor='black', linewidth=1.5, alpha=0.7)
+            
+            # Etiqueta de zona
+            centroid = row.geometry.centroid
+            ax.annotate(f"Z{row['id_zona']}\n{valor:.1f}", (centroid.x, centroid.y),
+                        xytext=(5, 5), textcoords="offset points",
+                        fontsize=8, color='black', weight='bold',
+                        bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.9))
+        
+        # Agregar mapa base ESRI Satellite
+        try:
+            ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery, alpha=0.7)
+        except:
+            st.warning("⚠️ No se pudo cargar el mapa base ESRI. Verifica la conexión a internet.")
+        
+        info_satelite = SATELITES_DISPONIBLES.get(satelite, SATELITES_DISPONIBLES['DATOS_SIMULADOS'])
+        ax.set_title(f'{ICONOS_CULTIVOS[cultivo]} ANÁLISIS GEE - {cultivo}\n'
+                     f'{info_satelite["icono"]} {info_satelite["nombre"]} - {analisis_tipo}\n'
+                     f'{columna_valor}',
+                     fontsize=16, fontweight='bold', pad=20)
+        ax.set_xlabel('Longitud')
+        ax.set_ylabel('Latitud')
+        ax.grid(True, alpha=0.3)
+        
+        # Barra de colores
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=vmin, vmax=vmax))
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax, shrink=0.8)
+        cbar.set_label(columna_valor, fontsize=12, fontweight='bold')
+        
+        plt.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        buf.seek(0)
+        plt.close()
+        return buf
+    except Exception as e:
+        st.error(f"❌ Error creando mapa con ESRI: {str(e)}")
+        return None
+
+def crear_mapa_texturas_con_esri(gdf_analizado, cultivo):
+    """Crea mapa de texturas con fondo ESRI Satellite"""
+    try:
+        # Convertir a Web Mercator
+        gdf_plot = gdf_analizado.to_crs(epsg=3857)
+        
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+        
+        colores_textura = {
+            'Franco': '#c7eae5',
+            'Franco arcilloso': '#5ab4ac',
+            'Franco arenoso-arcilloso': '#f6e8c3',
+            'NO_DETERMINADA': '#999999'
+        }
+        
+        # Plot de cada zona con su color según textura
+        for idx, row in gdf_plot.iterrows():
+            textura = row['textura_suelo']
+            color = colores_textura.get(textura, '#999999')
+            gdf_plot.iloc[[idx]].plot(ax=ax, color=color, edgecolor='black', linewidth=1.5, alpha=0.8)
+            
+            # Etiqueta de zona
+            centroid = row.geometry.centroid
+            ax.annotate(f"Z{row['id_zona']}\n{textura[:10]}", (centroid.x, centroid.y),
+                        xytext=(5, 5), textcoords="offset points",
+                        fontsize=8, color='black', weight='bold',
+                        bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.9))
+        
+        # Agregar mapa base ESRI Satellite
+        try:
+            ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery, alpha=0.6)
+        except:
+            st.warning("⚠️ No se pudo cargar el mapa base ESRI. Verifica la conexión a internet.")
+        
+        ax.set_title(f'{ICONOS_CULTIVOS[cultivo]} MAPA DE TEXTURAS - {cultivo}',
+                     fontsize=16, fontweight='bold', pad=20)
+        ax.set_xlabel('Longitud')
+        ax.set_ylabel('Latitud')
+        ax.grid(True, alpha=0.3)
+        
+        # Leyenda
+        from matplotlib.patches import Patch
+        legend_elements = [Patch(facecolor=color, edgecolor='black', label=textura)
+                           for textura, color in colores_textura.items()]
+        ax.legend(handles=legend_elements, title='Texturas', loc='upper left', bbox_to_anchor=(1.05, 1))
+        
+        plt.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        buf.seek(0)
+        plt.close()
+        return buf
+    except Exception as e:
+        st.error(f"Error creando mapa de texturas: {str(e)}")
+        return None
+
+def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
+    """Crea mapa de calor de potencial de cosecha con fondo ESRI"""
+    try:
+        # Convertir a Web Mercator
+        gdf_plot = gdf_analizado.to_crs(epsg=3857)
+        
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+        
+        # Usar paleta de calor (hot) para zonas de mejor cosecha
+        cmap = plt.cm.hot
+        
+        # Extraer centroides para el heatmap
+        centroids = gdf_plot.geometry.centroid
+        x_coords = [c.x for c in centroids]
+        y_coords = [c.y for c in centroids]
+        valores = gdf_plot['potencial_cosecha'].values
+        
+        # Crear heatmap de puntos
+        heatmap = ax.scatter(x_coords, y_coords, c=valores, cmap=cmap, 
+                            s=200, alpha=0.8, edgecolors='black', linewidth=1)
+        
+        # Dibujar polígonos con transparencia
+        gdf_plot.plot(ax=ax, color='none', edgecolor='black', linewidth=1, alpha=0.5)
+        
+        # Etiquetas de zonas con valores
+        for idx, row in gdf_plot.iterrows():
+            centroid = row.geometry.centroid
+            ax.annotate(f"Z{row['id_zona']}\n{row['potencial_cosecha']:.2f}", 
+                       (centroid.x, centroid.y),
+                       xytext=(3, 3), textcoords="offset points",
+                       fontsize=7, color='black', weight='bold',
+                       bbox=dict(boxstyle="round,pad=0.2", facecolor='white', alpha=0.8))
+        
+        # Agregar mapa base ESRI Satellite
+        try:
+            ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery, alpha=0.5)
+        except:
+            st.warning("⚠️ No se pudo cargar el mapa base ESRI. Verifica la conexión a internet.")
+        
+        ax.set_title(f"🔥 MAPA DE CALOR - POTENCIAL DE COSECHA - {cultivo}", 
+                    fontsize=16, fontweight='bold')
+        ax.set_xlabel("Longitud")
+        ax.set_ylabel("Latitud")
+        ax.grid(True, alpha=0.2)
+        
+        # Barra de colores
+        cbar = plt.colorbar(heatmap, ax=ax, shrink=0.8)
+        cbar.set_label("Potencial de Cosecha (0-1)", fontsize=12, fontweight='bold')
+        
+        # Resaltar zonas con mejor potencial (>0.7)
+        zonas_calientes = gdf_plot[gdf_plot['potencial_cosecha'] > 0.7]
+        if not zonas_calientes.empty:
+            for idx, row in zonas_calientes.iterrows():
+                centroid = row.geometry.centroid
+                ax.plot(centroid.x, centroid.y, 'yo', markersize=10, 
+                       markeredgecolor='red', markeredgewidth=2)
+        
+        plt.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        buf.seek(0)
+        plt.close()
+        return buf
+    except Exception as e:
+        st.error(f"Error creando mapa de calor: {str(e)}")
+        return None
+
 # ===== FUNCIÓN PRINCIPAL DE ANÁLISIS (CORREGIDA) =====
 def ejecutar_analisis(gdf, nutriente, analisis_tipo, n_divisiones, cultivo,
                       satelite=None, indice=None, fecha_inicio=None,
@@ -1524,48 +1728,18 @@ def mostrar_resultados_textura(gdf_analizado, cultivo, area_total):
     ax2.tick_params(axis='x', rotation=45)
     plt.tight_layout()
     st.pyplot(fig)
-    st.subheader("🗺️ MAPA DE TEXTURAS")
-    try:
-        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-        colores_textura = {
-            'Franco': '#c7eae5',
-            'Franco Arcilloso': '#5ab4ac',
-            'Franco Arenoso': '#f6e8c3',
-            'Arenoso': '#d8b365',
-            'Arcilloso': '#01665e',
-            'NO_DETERMINADA': '#999999'
-        }
-        for idx, row in gdf_analizado.iterrows():
-            textura = row['textura_suelo']
-            color = colores_textura.get(textura, '#999999')
-            gdf_analizado.iloc[[idx]].plot(ax=ax, color=color, edgecolor='black', linewidth=1.5)
-            centroid = row.geometry.centroid
-            ax.annotate(f"Z{row['id_zona']}\n{textura[:3]}", (centroid.x, centroid.y),
-                        xytext=(5, 5), textcoords="offset points",
-                        fontsize=8, color='black', weight='bold',
-                        bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.9))
-        ax.set_title(f'{ICONOS_CULTIVOS[cultivo]} MAPA DE TEXTURAS - {cultivo}',
-                     fontsize=16, fontweight='bold', pad=20)
-        ax.set_xlabel('Longitud')
-        ax.set_ylabel('Latitud')
-        ax.grid(True, alpha=0.3)
-        from matplotlib.patches import Patch
-        legend_elements = [Patch(facecolor=color, edgecolor='black', label=textura)
-                           for textura, color in colores_textura.items()]
-        ax.legend(handles=legend_elements, title='Texturas', loc='upper left', bbox_to_anchor=(1.05, 1))
-        plt.tight_layout()
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
-        buf.seek(0)
-        st.image(buf, use_container_width=True)
+    
+    st.subheader("🗺️ MAPA DE TEXTURAS CON ESRI SATELLITE")
+    mapa_texturas = crear_mapa_texturas_con_esri(gdf_analizado, cultivo)
+    if mapa_texturas:
+        st.image(mapa_texturas, use_container_width=True)
         st.download_button(
             "📥 Descargar Mapa de Texturas",
-            buf,
+            mapa_texturas,
             f"mapa_texturas_{cultivo}_{datetime.now().strftime('%Y%m%d_%H%M')}.png",
             "image/png"
         )
-    except Exception as e:
-        st.error(f"Error creando mapa: {str(e)}")
+    
     st.subheader("📋 TABLA DE RESULTADOS POR ZONA")
     columnas_textura = ['id_zona', 'area_ha', 'textura_suelo', 'arena', 'limo', 'arcilla']
     columnas_textura = [col for col in columnas_textura if col in gdf_analizado.columns]
@@ -1573,6 +1747,7 @@ def mostrar_resultados_textura(gdf_analizado, cultivo, area_total):
         tabla_textura = gdf_analizado[columnas_textura].copy()
         tabla_textura.columns = ['Zona', 'Área (ha)', 'Textura', 'Arena (%)', 'Limo (%)', 'Arcilla (%)']
         st.dataframe(tabla_textura)
+    
     st.subheader("💡 RECOMENDACIONES DE MANEJO POR TEXTURA")
     if 'textura_suelo' in gdf_analizado.columns:
         textura_predominante = gdf_analizado['textura_suelo'].mode()[0] if len(gdf_analizado) > 0 else "NO_DETERMINADA"
@@ -1592,6 +1767,7 @@ def mostrar_resultados_textura(gdf_analizado, cultivo, area_total):
                 st.markdown("**🛠️ MANEJO RECOMENDADO**")
                 for man in info_textura['manejo']:
                     st.markdown(f"• {man}")
+    
     st.subheader("💾 DESCARGAR RESULTADOS")
     if 'columnas_textura' in locals() and columnas_textura:
         tabla_textura = gdf_analizado[columnas_textura].copy()
@@ -1815,7 +1991,7 @@ if uploaded_file:
                                     "☀️ Radiación Solar",
                                     "💨 Velocidad del Viento",
                                     "🌧️ Precipitación",
-                                    "📈 Potencial de Cosecha"
+                                    "🔥 Potencial de Cosecha"
                                 ])
 
                                 def crear_grafico_personalizado(series, titulo, ylabel, color_linea, fondo_grafico='#f8f9fa', color_texto='#2c3e50'):
@@ -1940,34 +2116,30 @@ if uploaded_file:
 
                                 # === PESTAÑA: POTENCIAL DE COSECHA ===
                                 with tab_cosecha:
-                                    st.subheader("📊 Cálculo de Potencial de Cosecha Integrado")
+                                    st.subheader("🔥 Análisis de Potencial de Cosecha - Puntos Calientes")
                                     st.markdown("""
-                                    El potencial de cosecha se estima combinando:
-                                    - Fertilidad del suelo (NPK, materia orgánica)
-                                    - Radiación solar (NASA POWER)
-                                    - Humedad del suelo (NDWI + parámetros del cultivo)
-                                    - Estrés por viento (impacto negativo)
+                                    **Metodología:**
+                                    - Se integran datos de fertilidad (NPK), radiación solar, humedad (NDWI) y estrés por viento
+                                    - Las zonas con valores más altos (rojo/amarillo) son los **puntos calientes** para mejor cosecha
+                                    - Los círculos amarillos marcan zonas con potencial >0.7
                                     """)
 
                                     # --- Paso 1: Agregar datos meteorológicos promedio a cada zona ---
                                     rad_prom = df_power['radiacion_solar'].mean()
                                     viento_prom = df_power['viento_2m'].mean()
                                     
-                                    # Asignar los mismos valores promedio a todas las zonas (simplificación razonable)
+                                    # Asignar los mismos valores promedio a todas las zonas
                                     gdf_analizado['radiacion_solar'] = rad_prom
                                     gdf_analizado['viento_2m'] = viento_prom
 
                                     # --- Paso 2: Normalizar cada variable a [0, 1] ---
                                     def normalizar_solar(valor):
-                                        # Rango esperado: 3 a 7 kWh/m²/día
                                         return np.clip((valor - 3.0) / (7.0 - 3.0), 0, 1)
 
                                     def normalizar_viento(valor):
-                                        # Viento ideal < 2 m/s; >4 m/s es estresante → invertido
                                         return np.clip(1 - (valor - 1.0) / (5.0 - 1.0), 0, 1)
 
                                     def normalizar_humedad(ndwi):
-                                        # NDWI entre 0.1 y 0.4 es ideal para la mayoría de cultivos
                                         return np.clip((ndwi - 0.1) / (0.4 - 0.1), 0, 1)
 
                                     gdf_analizado['solar_norm'] = gdf_analizado['radiacion_solar'].apply(normalizar_solar)
@@ -1975,7 +2147,6 @@ if uploaded_file:
                                     gdf_analizado['humedad_norm'] = gdf_analizado['ndwi'].apply(normalizar_humedad)
 
                                     # --- Paso 3: Calcular índice integrado ---
-                                    # Ponderaciones agronómicas típicas
                                     w_fertilidad = 0.40
                                     w_solar = 0.25
                                     w_humedad = 0.20
@@ -1990,10 +2161,10 @@ if uploaded_file:
 
                                     # Escalar a toneladas/ha según cultivo base
                                     produccion_base = {
-                                        'PALMA ACEITERA': 20,  # t/ha de fruto
-                                        'CACAO': 1.2,          # t/ha de cacao seco
-                                        'BANANO': 35,          # t/ha
-                                        'CAFÉ': 2.5            # t/ha de café pergamino
+                                        'PALMA ACEITERA': 20,
+                                        'CACAO': 1.2,
+                                        'BANANO': 35,
+                                        'CAFÉ': 2.5
                                     }
                                     base = produccion_base.get(cultivo, 10)
                                     gdf_analizado['produccion_estimada'] = gdf_analizado['potencial_cosecha'] * base
@@ -2010,123 +2181,54 @@ if uploaded_file:
                                         total_est = (gdf_analizado['produccion_estimada'] * gdf_analizado['area_ha']).sum()
                                         st.metric("Total Parcela", f"{total_est:.1f} t")
 
-                                    # --- Paso 5: Crear mapa de calor ---
-                                    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-                                    cmap = LinearSegmentedColormap.from_list('cosecha', ['#f7f7f7', '#e6f598', '#abdda4', '#66c2a5', '#3288bd', '#5e4fa2'])
-                                    gdf_analizado.plot(
-                                        column='potencial_cosecha',
-                                        cmap=cmap,
-                                        linewidth=0.8,
-                                        edgecolor='black',
-                                        alpha=0.9,
-                                        legend=True,
-                                        ax=ax,
-                                        legend_kwds={'label': "Potencial de Cosecha (0–1)", 'orientation': "horizontal"}
-                                    )
-                                    # Etiquetas por zona
-                                    for idx, row in gdf_analizado.iterrows():
-                                        centroid = row.geometry.centroid
-                                        ax.annotate(
-                                            f"Z{row['id_zona']}\n{row['produccion_estimada']:.1f}",
-                                            (centroid.x, centroid.y),
-                                            xytext=(3, 3),
-                                            textcoords="offset points",
-                                            fontsize=7,
-                                            color='black',
-                                            weight='bold',
-                                            bbox=dict(boxstyle="round,pad=0.2", facecolor='white', alpha=0.8)
+                                    # --- Paso 5: Crear mapa de calor con ESRI ---
+                                    mapa_calor = crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo)
+                                    if mapa_calor:
+                                        st.image(mapa_calor, use_container_width=True)
+                                        st.download_button(
+                                            "📥 Descargar Mapa de Calor",
+                                            mapa_calor,
+                                            f"potencial_cosecha_calor_{cultivo}_{datetime.now().strftime('%Y%m%d')}.png",
+                                            "image/png"
                                         )
-                                    ax.set_title(f"🗺️ Mapa de Potencial de Cosecha - {cultivo}", fontsize=16, fontweight='bold')
-                                    ax.set_xlabel("Longitud")
-                                    ax.set_ylabel("Latitud")
-                                    ax.grid(True, alpha=0.2)
-                                    plt.tight_layout()
-                                    st.pyplot(fig)
 
-                                    # --- Paso 6: Interpretación ---
-                                    prom_pot = gdf_analizado['potencial_cosecha'].mean()
-                                    if prom_pot > 0.75:
-                                        st.success("✅ **Alto potencial**: Condiciones óptimas de suelo y clima.")
-                                    elif prom_pot > 0.5:
-                                        st.info("ℹ️ **Potencial moderado**: Buenas condiciones, con oportunidades de mejora.")
-                                    else:
-                                        st.warning("⚠️ **Bajo potencial**: Limitado por déficit en fertilidad, agua, luz o estrés por viento.")
+                                    # --- Paso 6: Identificar puntos calientes ---
+                                    zonas_calientes = gdf_analizado[gdf_analizado['potencial_cosecha'] > 0.7]
+                                    if not zonas_calientes.empty:
+                                        st.subheader("📍 ZONAS CALIENTES (Potencial > 0.7)")
+                                        st.dataframe(zonas_calientes[['id_zona', 'area_ha', 'potencial_cosecha', 'produccion_estimada']].sort_values('potencial_cosecha', ascending=False))
+                                        
+                                        total_area_caliente = zonas_calientes['area_ha'].sum()
+                                        st.metric(f"Área total de zonas calientes", f"{total_area_caliente:.2f} ha")
+                                        
+                                        st.markdown("**Recomendaciones para zonas calientes:**")
+                                        st.markdown("""
+                                        - ✅ **Maximizar inversión** en estas zonas (fertilización, riego)
+                                        - ✅ **Priorizar cosecha** temprana en estas áreas
+                                        - ✅ **Monitoreo intensivo** para mantener altos rendimientos
+                                        """)
 
-                                    # --- Paso 7: Descarga ---
-                                    buf_mapa = io.BytesIO()
-                                    plt.savefig(buf_mapa, format='png', dpi=150, bbox_inches='tight')
-                                    buf_mapa.seek(0)
-                                    st.download_button(
-                                        "📥 Descargar Mapa de Potencial",
-                                        buf_mapa,
-                                        f"potencial_cosecha_{cultivo}_{datetime.now().strftime('%Y%m%d')}.png",
-                                        "image/png"
-                                    )
-
-                            def crear_mapa_estatico(gdf, titulo, columna_valor, analisis_tipo, nutriente, cultivo, satelite):
-                                try:
-                                    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-                                    if analisis_tipo == "FERTILIDAD ACTUAL":
-                                        cmap = LinearSegmentedColormap.from_list('fertilidad_gee', PALETAS_GEE['FERTILIDAD'])
-                                        vmin, vmax = 0, 1
-                                    else:
-                                        if nutriente == "NITRÓGENO":
-                                            cmap = LinearSegmentedColormap.from_list('nitrogeno_gee', PALETAS_GEE['NITROGENO'])
-                                            vmin, vmax = (PARAMETROS_CULTIVOS[cultivo]['NITROGENO']['min'] * 0.8,
-                                                          PARAMETROS_CULTIVOS[cultivo]['NITROGENO']['max'] * 1.2)
-                                        elif nutriente == "FÓSFORO":
-                                            cmap = LinearSegmentedColormap.from_list('fosforo_gee', PALETAS_GEE['FOSFORO'])
-                                            vmin, vmax = (PARAMETROS_CULTIVOS[cultivo]['FOSFORO']['min'] * 0.8,
-                                                          PARAMETROS_CULTIVOS[cultivo]['FOSFORO']['max'] * 1.2)
-                                        else:
-                                            cmap = LinearSegmentedColormap.from_list('potasio_gee', PALETAS_GEE['POTASIO'])
-                                            vmin, vmax = (PARAMETROS_CULTIVOS[cultivo]['POTASIO']['min'] * 0.8,
-                                                          PARAMETROS_CULTIVOS[cultivo]['POTASIO']['max'] * 1.2)
-                                    for idx, row in gdf.iterrows():
-                                        valor = row[columna_valor]
-                                        valor_norm = (valor - vmin) / (vmax - vmin)
-                                        valor_norm = max(0, min(1, valor_norm))
-                                        color = cmap(valor_norm)
-                                        gdf.iloc[[idx]].plot(ax=ax, color=color, edgecolor='black', linewidth=1.5)
-                                        centroid = row.geometry.centroid
-                                        ax.annotate(f"Z{row['id_zona']}\n{valor:.1f}", (centroid.x, centroid.y),
-                                                    xytext=(5, 5), textcoords="offset points",
-                                                    fontsize=8, color='black', weight='bold',
-                                                    bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.9))
-                                    info_satelite = SATELITES_DISPONIBLES.get(satelite, SATELITES_DISPONIBLES['DATOS_SIMULADOS'])
-                                    ax.set_title(f'{ICONOS_CULTIVOS[cultivo]} ANÁLISIS GEE - {cultivo}\n'
-                                                 f'{info_satelite["icono"]} {info_satelite["nombre"]} - {analisis_tipo}\n'
-                                                 f'{columna_valor}',
-                                                 fontsize=16, fontweight='bold', pad=20)
-                                    ax.set_xlabel('Longitud')
-                                    ax.set_ylabel('Latitud')
-                                    ax.grid(True, alpha=0.3)
-                                    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=vmin, vmax=vmax))
-                                    sm.set_array([])
-                                    cbar = plt.colorbar(sm, ax=ax, shrink=0.8)
-                                    cbar.set_label(columna_valor, fontsize=12, fontweight='bold')
-                                    plt.tight_layout()
-                                    buf = io.BytesIO()
-                                    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
-                                    buf.seek(0)
-                                    plt.close()
-                                    return buf
-                                except Exception as e:
-                                    st.error(f"❌ Error creando mapa: {str(e)}")
-                                    return None
-
+                            # Crear mapa estático con ESRI para análisis GEE
                             if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
                                 columna_valor = 'valor_recomendado' if analisis_tipo == "RECOMENDACIONES NPK" else 'npk_actual'
-                                mapa_buffer = crear_mapa_estatico(gdf_analizado, f"ANÁLISIS {analisis_tipo}", columna_valor, analisis_tipo, nutriente, cultivo, satelite_seleccionado)
+                                mapa_buffer = crear_mapa_estatico_con_esri(gdf_analizado, 
+                                                                          f"ANÁLISIS {analisis_tipo}", 
+                                                                          columna_valor, 
+                                                                          analisis_tipo, 
+                                                                          nutriente, 
+                                                                          cultivo, 
+                                                                          satelite_seleccionado)
                                 if mapa_buffer:
+                                    st.subheader(f"🗺️ MAPA CON ESRI SATELLITE - {analisis_tipo}")
                                     st.image(mapa_buffer, use_container_width=True)
                                     st.session_state['resultados_guardados']['mapa_buffer'] = mapa_buffer
                                     st.download_button(
-                                        "📥 Descargar Mapa GEE",
+                                        "📥 Descargar Mapa GEE con ESRI",
                                         mapa_buffer,
-                                        f"mapa_gee_{cultivo}_{satelite_seleccionado}_{analisis_tipo.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.png",
+                                        f"mapa_gee_esri_{cultivo}_{satelite_seleccionado}_{analisis_tipo.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.png",
                                         "image/png"
                                     )
+                                
                                 st.subheader("🔬 ÍNDICES SATELITALES GEE POR ZONA")
                                 columnas_indices = ['id_zona', 'npk_actual', 'materia_organica', 'ndvi', 'ndre', 'humedad_suelo', 'ndwi']
                                 if analisis_tipo == "RECOMENDACIONES NPK":
@@ -2281,14 +2383,16 @@ with st.expander("ℹ️ INFORMACIÓN SOBRE LA METODOLOGÍA"):
     - **🍫 CACAO:** Cultivo de sombra, requiere alta materia orgánica
     - **🍌 BANANO:** Cultivo exigente en nitrógeno y potasio, sensible a encharcamientos
     - **☕ CAFÉ:** Cultivo de montaña, sensible a pendientes y pH ácido
-    **🚀 FUNCIONALIDADES:**
+    **🚀 FUNCIONALIDADES MEJORADAS:**
     - **🌱 Fertilidad Actual:** Estado NPK del suelo usando índices satelitales
+    - **🗺️ Mapas ESRI Satellite:** Mapas base de alta resolución
+    - **🔥 Mapas de Calor:** Identificación de puntos calientes para cosecha
     - **💧 NDWI (Humedad):** Índice de Agua en Vegetación/Suelo
     - **☀️ Radiación Solar:** Datos de NASA POWER (kWh/m²/día)
     - **💨 Velocidad del Viento:** Datos de NASA POWER (m/s)
     - **💧 Precipitación:** Datos de NASA POWER (mm/día)
     - **💊 Recomendaciones NPK:** Dosis específicas por cultivo tropical
-    - **🏗️ Análisis de Textura:** Composición del suelo (arena, limo, arcilla)
+    - **🏗️ Análisis de Textura:** Composición del suelo (nomenclatura Venezuela/Colombia)
     - **🏔️ Curvas de Nivel:** Análisis topográfico con mapa de calor de pendientes
     **🔬 METODOLOGÍA CIENTÍFICA:**
     - Análisis basado en imágenes satelitales
