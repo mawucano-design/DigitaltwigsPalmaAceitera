@@ -1967,7 +1967,7 @@ if 'resultados_guardados' in st.session_state:
     with col_exp1:
         if st.button("🗺️ Exportar GeoJSON", key="export_geojson"):
             geojson_data, nombre_archivo = exportar_a_geojson(res['gdf_analizado'], f"parcela_{res['cultivo']}")
-            if geojson_data
+            if geojson_data:
                 st.download_button(
                     label="📥 Descargar GeoJSON",
                     data=geojson_data,
