@@ -30,119 +30,141 @@ warnings.filterwarnings('ignore')
 # ========================================
 # ✨ ESTILOS MODERNOS (DARK MODE + DASHBOARD)
 # ========================================
+# ========================================
+# ✨ ESTILOS MODERNOS CON ALTO CONTRASTE (DARK + LIGHT)
+# ========================================
 st.markdown("""
 <style>
-/* Fondo de la app */
+/* === FONDO GENERAL CLARO === */
 .stApp {
-    background-color: #0e1117;
-    color: #e0e0e0;
+    background-color: #f8f9fa;
+    color: #2c3e50;
 }
 
-/* Sidebar oscuro */
+/* === SIDEBAR: FONDO OSCURO → TEXTO BLANCO === */
 [data-testid="stSidebar"] {
-    background-color: #1a1f25 !important;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(180deg, #0a3d2e 0%, #0d513d 100%) !important;
 }
-
-/* Texto del sidebar */
-[data-testid="stSidebar"] * {
-    color: #e0e0e0 !important;
+[data-testid="stSidebar"] *,
+[data-testid="stSidebar"] .stMarkdown,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] .stText,
+[data-testid="stSidebar"] .stTitle,
+[data-testid="stSidebar"] .stSubheader {
+    color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* Título del sidebar */
 .sidebar-title {
-    font-size: 1.5em;
+    font-size: 1.4em;
     font-weight: bold;
-    margin: 1.5em 0 1em 0;
+    margin-bottom: 1.2em;
     text-align: center;
-    padding: 12px;
-    background: rgba(30, 30, 40, 0.6);
+    padding: 0.8em;
+    background: rgba(168, 230, 207, 0.2);
     border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
     color: #ffffff !important;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* Inputs y selects */
-[data-testid="stSidebar"] .stSelectbox div,
-[data-testid="stSidebar"] .stDateInput div,
+/* Inputs y selects en sidebar → blanco suave */
+[data-testid="stSidebar"] .stSelectbox,
+[data-testid="stSidebar"] .stDateInput,
 [data-testid="stSidebar"] .stSlider label {
-    color: #c0c0c0 !important;
+    color: #e0f2e9 !important;
 }
 
-/* Botones modernos */
+/* Botones del sidebar → blanco sobre fondo oscuro */
 .stButton > button {
-    background: linear-gradient(135deg, #2a4d69, #1a2a6c);
+    background: linear-gradient(120deg, #1e7a5d, #0d513d);
     color: white !important;
     border: none;
-    padding: 0.7em 1.4em;
-    border-radius: 10px;
+    padding: 0.6em 1.2em;
+    border-radius: 8px;
     font-weight: bold;
-    box-shadow: 0 4px 10px rgba(26, 42, 108, 0.4);
-    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 .stButton > button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(26, 42, 108, 0.6);
-    background: linear-gradient(135deg, #1a2a6c, #2a4d69);
+    box-shadow: 0 4px 12px rgba(26, 118, 93, 0.6);
+    background: linear-gradient(120deg, #2a9d8f, #1e7a5d);
 }
 
-/* Métricas estilo tarjeta */
-div[data-testid="metric-container"] {
-    background: rgba(30, 35, 50, 0.7);
-    border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(100, 149, 237, 0.3);
-}
-
-/* Títulos */
-h1, h2, h3, h4 {
-    color: #ffffff !important;
-    font-weight: 700 !important;
+/* === TÍTULO PRINCIPAL === */
+.main-title-banner h1 {
+    color: white !important;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* Pestañas modernas */
+/* === CUERPO PRINCIPAL: FONDO CLARO → TEXTO OSCURO === */
+h1, h2, h3, h4, h5, h6 {
+    color: #0d513d !important;
+}
+
+p, div, span, label {
+    color: #2c3e50 !important;
+}
+
+/* === PESTAÑAS (tabs): fondo claro, texto oscuro, bordes con contraste === */
 .stTabs [data-baseweb="tab-list"] {
-    background: rgba(26, 30, 40, 0.8);
-    padding: 12px 20px;
-    border-radius: 14px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    margin-top: 1.5em;
-    gap: 8px;
+    background-color: white !important;
+    padding: 8px 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-top: 1em;
 }
 .stTabs [data-baseweb="tab"] {
-    color: #a0a0c0 !important;
+    color: #333333 !important;
     font-weight: 600;
-    padding: 10px 22px;
-    border-radius: 10px;
-    background: rgba(40, 45, 60, 0.6);
-    transition: all 0.2s;
+    padding: 8px 20px;
+    border-radius: 6px;
+    margin-right: 6px;
+    background: #f8f9fa;
 }
 .stTabs [data-baseweb="tab"]:hover {
-    color: #ffffff !important;
-    background: rgba(60, 70, 90, 0.6);
+    color: #0d513d !important;
+    background-color: #e8f5f0 !important;
 }
 .stTabs [aria-selected="true"] {
-    color: #ffffff !important;
-    background: linear-gradient(135deg, #1a2a6c, #2a4d69) !important;
+    background-color: white !important;
+    color: #0d513d !important;
     font-weight: 700;
-    box-shadow: 0 4px 10px rgba(26, 42, 108, 0.4);
+    border-bottom: 3px solid #2a9d8f;
 }
 
-/* Gráficos con fondo oscuro */
+/* === MÉTRICAS (tarjetas): fondo claro, texto oscuro con contraste === */
+div[data-testid="metric-container"] {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e0e0e0;
+}
+div[data-testid="metric-container"] label {
+    color: #0d513d !important;
+    font-weight: 600;
+}
+div[data-testid="metric-container"] div {
+    color: #2c3e50 !important;
+    font-size: 1.25em;
+}
+
+/* === GRÁFICOS: fondo blanco, ejes y etiquetas oscuras === */
 .stPlotlyChart, .stPyplot {
-    background: rgba(20, 25, 35, 0.4);
+    background: white !important;
     border-radius: 12px;
     padding: 12px;
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-/* Expander */
+/* === EXPANDERS === */
 .streamlit-expanderHeader {
-    color: #e0e0e0 !important;
-    background: rgba(30, 35, 50, 0.6) !important;
+    color: #0d513d !important;
+    background: #e8f5f0 !important;
     border-radius: 10px !important;
+    font-weight: 600;
 }
 </style>
 """, unsafe_allow_html=True)
