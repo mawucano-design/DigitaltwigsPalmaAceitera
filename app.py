@@ -34,14 +34,15 @@ st.markdown("""
     background: linear-gradient(135deg, #f0f8f5 0%, #e6f2ed 100%);
 }
 
-/* === SIDEBAR: Fondo verde oscuro y letras verde agua === */
+/* === SIDEBAR: Fondo verde oscuro y texto verde agua claro === */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0a3d2e 0%, #0d513d 100%) !important;
-    color: #a8e6cf !important;
 }
 
+/* Todo el texto dentro del sidebar es BLANCO o verde agua claro */
 [data-testid="stSidebar"] * {
     color: #a8e6cf !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
 }
 
 .sidebar-title {
@@ -50,16 +51,26 @@ st.markdown("""
     margin-bottom: 1.2em;
     text-align: center;
     padding: 0.8em;
-    background: rgba(168, 230, 207, 0.2); /* verde agua transparente */
+    background: rgba(168, 230, 207, 0.2);
     border-radius: 12px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-    color: #a8e6cf !important;
+    color: #ffffff !important; /* Título del sidebar: blanco */
 }
 
-/* Botones en sidebar */
+/* Inputs y selects en sidebar */
+[data-testid="stSidebar"] .stSelectbox div,
+[data-testid="stSidebar"] .stDateInput div,
+[data-testid="stSidebar"] .stSlider label,
+[data-testid="stSidebar"] .stMarkdown,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] label {
+    color: #c1f0e0 !important;
+}
+
+/* Botones del sidebar */
 .stButton > button {
     background: linear-gradient(120deg, #1e7a5d, #0d513d);
-    color: #ffffff !important;
+    color: white !important;
     border: none;
     padding: 0.6em 1.2em;
     border-radius: 8px;
@@ -69,29 +80,35 @@ st.markdown("""
 }
 .stButton > button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(26, 118, 93, 0.5);
+    box-shadow: 0 4px 12px rgba(26, 118, 93, 0.6);
     background: linear-gradient(120deg, #2a9d8f, #1e7a5d);
 }
 
-/* Inputs, selects y sliders en sidebar */
-[data-testid="stSidebar"] .stSelectbox div,
-[data-testid="stSidebar"] .stDateInput div,
-[data-testid="stSidebar"] .stSlider label {
-    color: #c1f0e0 !important;
+/* === TÍTULO PRINCIPAL (BANNER): fondo verde oscuro + texto BLANCO === */
+.main-title-banner {
+    background: linear-gradient(135deg, #0a3d2e 0%, #0d513d 100%) !important;
+    padding: 1.5em;
+    border-radius: 16px;
+    margin-bottom: 1.5em;
+    box-shadow: 0 4px 20px rgba(10, 61, 46, 0.4);
 }
 
-/* Títulos principales */
-h1, h2, h3 {
-    color: #0d513d !important;
+.main-title-banner h1 {
+    color: white !important;
+    text-align: center;
+    margin: 0;
+    font-size: 2.4em;
     font-weight: 700 !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* === PESTAÑAS (st.tabs): fondo blanco, texto negro === */
+/* === PESTAÑAS (tabs): fondo blanco, texto negro === */
 .stTabs [data-baseweb="tab-list"] {
     background-color: white !important;
     padding: 8px 16px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-top: 1em;
 }
 
 .stTabs [data-baseweb="tab"] {
@@ -113,8 +130,16 @@ h1, h2, h3 {
     font-weight: 700;
     border-bottom: 3px solid #2a9d8f;
 }
+
+/* Evitar que los títulos del cuerpo principal tomen el color del sidebar */
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
+    color: #0d513d !important;
+    font-weight: 700 !important;
+    text-shadow: none !important;
+}
 </style>
 """, unsafe_allow_html=True)
+
 # CONFIGURACIÓN DE PÁGINA - DEBE SER LO PRIMERO
 st.set_page_config(
     page_title="🌱 Analizador Multi-Cultivo Satellital",
