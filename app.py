@@ -346,53 +346,55 @@ intervalo_curvas = 5.0
 resolucion_dem = 10.0
 
 # ===== SIDEBAR MEJORADO (INTERFAZ VISUAL) =====
+# ===== SIDEBAR MEJORADO (INTERFAZ VISUAL) =====
 with st.sidebar:
-st.markdown('<div class="sidebar-title">⚙️ CONFIGURACIÓN</div>', unsafe_allow_html=True)
-cultivo = st.selectbox("Cultivo:", ["PALMA ACEITERA", "CACAO", "BANANO", "CAFÉ"])
-st.image(IMAGENES_CULTIVOS[cultivo], use_container_width=True)
-analisis_tipo = st.selectbox("Tipo de Análisis:", ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK", "ANÁLISIS DE TEXTURA", "ANÁLISIS DE CURVAS DE NIVEL"])
-if analisis_tipo == "RECOMENDACIONES NPK":
-nutriente = st.selectbox("Nutriente:", ["NITRÓGENO", "FÓSFORO", "POTASIO"])
-st.subheader("🛰️ Fuente de Datos Satelitales")
-satelite_seleccionado = st.selectbox(
-"Satélite:",
-["SENTINEL-2", "LANDSAT-8", "DATOS_SIMULADOS"],
-help="Selecciona la fuente de datos satelitales"
-)
-if satelite_seleccionado in SATELITES_DISPONIBLES:
-info_satelite = SATELITES_DISPONIBLES[satelite_seleccionado]
-st.info(f"""
-**{info_satelite['icono']} {info_satelite['nombre']}**
-- Resolución: {info_satelite['resolucion']}
-- Revisita: {info_satelite['revisita']}
-- Índices: {', '.join(info_satelite['indices'][:3])}
-""")
-if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
-st.subheader("📊 Índices de Vegetación")
-if satelite_seleccionado == "SENTINEL-2":
-indice_seleccionado = st.selectbox("Índice:", SATELITES_DISPONIBLES['SENTINEL-2']['indices'])
-elif satelite_seleccionado == "LANDSAT-8":
-indice_seleccionado = st.selectbox("Índice:", SATELITES_DISPONIBLES['LANDSAT-8']['indices'])
-else:
-indice_seleccionado = st.selectbox("Índice:", SATELITES_DISPONIBLES['DATOS_SIMULADOS']['indices'])
+    st.markdown('<div class="sidebar-title">⚙️ CONFIGURACIÓN</div>', unsafe_allow_html=True)
+    cultivo = st.selectbox("Cultivo:", ["TRIGO", "SOJA", "MAÍZ", "SORGO", "GIRASOL"])
+    st.image(IMAGENES_CULTIVOS[cultivo], use_container_width=True)
+    analisis_tipo = st.selectbox("Tipo de Análisis:", ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK", "ANÁLISIS DE TEXTURA", "ANÁLISIS DE CURVAS DE NIVEL"])
+    if analisis_tipo == "RECOMENDACIONES NPK":
+        nutriente = st.selectbox("Nutriente:", ["NITRÓGENO", "FÓSFORO", "POTASIO"])
+    
+    st.subheader("🛰️ Fuente de Datos Satelitales")
+    satelite_seleccionado = st.selectbox(
+        "Satélite:",
+        ["SENTINEL-2", "LANDSAT-8", "DATOS_SIMULADOS"],
+        help="Selecciona la fuente de datos satelitales"
+    )
+    if satelite_seleccionado in SATELITES_DISPONIBLES:
+        info_satelite = SATELITES_DISPONIBLES[satelite_seleccionado]
+        st.info(f"""
+        **{info_satelite['icono']} {info_satelite['nombre']}**
+        - Resolución: {info_satelite['resolucion']}
+        - Revisita: {info_satelite['revisita']}
+        - Índices: {', '.join(info_satelite['indices'][:3])}
+        """)
+    
+    if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
+        st.subheader("📊 Índices de Vegetación")
+        if satelite_seleccionado == "SENTINEL-2":
+            indice_seleccionado = st.selectbox("Índice:", SATELITES_DISPONIBLES['SENTINEL-2']['indices'])
+        elif satelite_seleccionado == "LANDSAT-8":
+            indice_seleccionado = st.selectbox("Índice:", SATELITES_DISPONIBLES['LANDSAT-8']['indices'])
+        else:
+            indice_seleccionado = st.selectbox("Índice:", SATELITES_DISPONIBLES['DATOS_SIMULADOS']['indices'])
 
-if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
-st.subheader("📅 Rango Temporal")
-fecha_fin = st.date_input("Fecha fin", datetime.now())
-fecha_inicio = st.date_input("Fecha inicio", datetime.now() - timedelta(days=30))
+    if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
+        st.subheader("📅 Rango Temporal")
+        fecha_fin = st.date_input("Fecha fin", datetime.now())
+        fecha_inicio = st.date_input("Fecha inicio", datetime.now() - timedelta(days=30))
 
-st.subheader("🎯 División de Parcela")
-n_divisiones = st.slider("Número de zonas de manejo:", min_value=16, max_value=48, value=32)
+    st.subheader("🎯 División de Parcela")
+    n_divisiones = st.slider("Número de zonas de manejo:", min_value=16, max_value=48, value=32)
 
-if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
-st.subheader("🏔️ Configuración Curvas de Nivel")
-intervalo_curvas = st.slider("Intervalo entre curvas (metros):", 1.0, 20.0, 5.0, 1.0)
-resolucion_dem = st.slider("Resolución DEM (metros):", 5.0, 50.0, 10.0, 5.0)
+    if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
+        st.subheader("🏔️ Configuración Curvas de Nivel")
+        intervalo_curvas = st.slider("Intervalo entre curvas (metros):", 1.0, 20.0, 5.0, 1.0)
+        resolucion_dem = st.slider("Resolución DEM (metros):", 5.0, 50.0, 10.0, 5.0)
 
-st.subheader("📤 Subir Parcela")
-uploaded_file = st.file_uploader("Subir archivo de tu parcela", type=['zip', 'kml', 'kmz'],
-help="Formatos aceptados: Shapefile (.zip), KML (.kml), KMZ (.kmz)")
-
+    st.subheader("📤 Subir Parcela")
+    uploaded_file = st.file_uploader("Subir archivo de tu parcela", type=['zip', 'kml', 'kmz'],
+                                     help="Formatos aceptados: Shapefile (.zip), KML (.kml), KMZ (.kmz)")
 # ===== FUNCIONES AUXILIARES - CORREGIDAS PARA EPSG:4326 =====
 def validar_y_corregir_crs(gdf):
 if gdf is None or len(gdf) == 0:
