@@ -35,6 +35,16 @@ st.markdown("""
     color: #ffffff !important;
 }
 
+# Título principal con banner
+st.markdown("""
+<div style="background: linear-gradient(135deg, #1a2a6c 0%, #2a4d69 100%);
+padding: 1.5em; border-radius: 16px; margin-bottom: 1.5em; box-shadow: 0 4px 20px rgba(26, 42, 108, 0.3);">
+<h1 style="color: white; text-align: center; margin: 0; font-size: 2.4em;">
+🛰️ ANALIZADOR MULTI-CULTIVO TROPICAL - PALMA, CACAO, BANANO, CAFÉ
+</h1>
+</div>
+""", unsafe_allow_html=True)
+
 /* === SIDEBAR: Fondo verde oscuro + texto blanco/verde agua === */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0a3d2e 0%, #0d513d 100%) !important;
