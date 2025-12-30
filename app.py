@@ -282,20 +282,16 @@ with st.sidebar:
 
 # ===== FUNCIONES AUXILIARES - CORREGIDAS PARA EPSG:4326 =====
 def validar_y_corregir_crs(gdf):
-if gdf is None or len(gdf) == 0:
-return gdf
-try:
-if gdf.crs is None:
-gdf = gdf.set_crs('EPSG:4326', inplace=False)
-st.info("ℹ️ Se asignó EPSG:4326 al archivo (no tenía CRS)")
-elif str(gdf.crs).upper() != 'EPSG:4326':
-original_crs = str(gdf.crs)
-gdf = gdf.to_crs('EPSG:4326')
-st.info(f"ℹ️ Transformado de {original_crs} a EPSG:4326")
-return gdf
-except Exception as e:
-st.warning(f"⚠️ Error al corregir CRS: {str(e)}")
-return gdf
+    if gdf is None or len(gdf) == 0:
+        return gdf
+    try:
+        if gdf.crs is None:
+            gdf = gdf.set_crs('EPSG:4326', inplace=False)
+        elif str(gdf.crs).upper() != 'EPSG:4326':
+            gdf = gdf.to_crs('EPSG:4326')
+        return gdf
+    except:
+        return gdf
 
 def calcular_superficie(gdf):
 try:
