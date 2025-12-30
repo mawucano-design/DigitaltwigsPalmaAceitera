@@ -724,9 +724,6 @@ def obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin):
         st.error(f"❌ Error al obtener datos de NASA POWER: {str(e)}")
         return None
 
-# [FUNCIONES DE ANÁLISIS GEE, TEXTURA, CURVAS, EXPORTACIÓN...]
-# (Incluidas en el archivo completo abajo)
-
 # ===== FUNCIONES DE ANÁLISIS GEE =====
 def calcular_indices_satelitales_gee(gdf, cultivo, datos_satelitales):
     n_poligonos = len(gdf)
@@ -752,7 +749,8 @@ def calcular_indices_satelitales_gee(gdf, cultivo, datos_satelitales):
         base_humedad = params['HUMEDAD_OPTIMA'] * 0.8
         variabilidad_humedad = patron_espacial * (params['HUMEDAD_OPTIMA'] * 0.4)
         humedad_suelo = base_humedad + variabilidad_humedad + np.random.normal(0, 0.05)
-        humedad_suelo = max(0.1, min(0.8, humedad_suelo))
+        humedad_suelo = max(0.1, min(0.8, humedad_suelo)
+)
         ndvi_base = valor_base_satelital * 0.8
         ndvi_variacion = patron_espacial * (valor_base_satelital * 0.4)
         ndvi = ndvi_base + ndvi_variacion + np.random.normal(0, 0.06)
@@ -1781,8 +1779,13 @@ if uploaded_file:
                                 with col7:
                                     st.metric("💧 NDWI Promedio", f"{gdf_analizado['ndwi'].mean():.3f}")
 
-                                # === PESTAÑAS DETALLADAS CON DASHBOARDS ===
-                                tab_radiacion, tab_viento, tab_precip = st.tabs(["☀️ Radiación Solar", "💨 Velocidad del Viento", "🌧️ Precipitación"])
+                                # === PESTAÑAS CON NUEVA PESTAÑA DE POTENCIAL DE COSECHA ===
+                                tab_radiacion, tab_viento, tab_precip, tab_cosecha = st.tabs([
+                                    "☀️ Radiación Solar",
+                                    "💨 Velocidad del Viento",
+                                    "🌧️ Precipitación",
+                                    "📈 Potencial de Cosecha"
+                                ])
 
                                 def crear_grafico_personalizado(series, titulo, ylabel, color_linea, fondo_grafico='#f8f9fa', color_texto='#2c3e50'):
                                     fig, ax = plt.subplots(figsize=(10, 4))
@@ -1903,6 +1906,131 @@ if uploaded_file:
                                         color_barra='#2ecc71'
                                     ))
                                     st.markdown(f"**Interpretación agronómica:** {interpretacion}")
+
+                                # === PESTAÑA: POTENCIAL DE COSECHA ===
+                                with tab_cosecha:
+                                    st.subheader("📊 Cálculo de Potencial de Cosecha Integrado")
+                                    st.markdown("""
+                                    El potencial de cosecha se estima combinando:
+                                    - Fertilidad del suelo (NPK, materia orgánica)
+                                    - Radiación solar (NASA POWER)
+                                    - Humedad del suelo (NDWI + parámetros del cultivo)
+                                    - Estrés por viento (impacto negativo)
+                                    """)
+
+                                    # --- Paso 1: Agregar datos meteorológicos promedio a cada zona ---
+                                    rad_prom = df_power['radiacion_solar'].mean()
+                                    viento_prom = df_power['viento_2m'].mean()
+                                    
+                                    # Asignar los mismos valores promedio a todas las zonas (simplificación razonable)
+                                    gdf_analizado['radiacion_solar'] = rad_prom
+                                    gdf_analizado['viento_2m'] = viento_prom
+
+                                    # --- Paso 2: Normalizar cada variable a [0, 1] ---
+                                    def normalizar_solar(valor):
+                                        # Rango esperado: 3 a 7 kWh/m²/día
+                                        return np.clip((valor - 3.0) / (7.0 - 3.0), 0, 1)
+
+                                    def normalizar_viento(valor):
+                                        # Viento ideal < 2 m/s; >4 m/s es estresante → invertido
+                                        return np.clip(1 - (valor - 1.0) / (5.0 - 1.0), 0, 1)
+
+                                    def normalizar_humedad(ndwi):
+                                        # NDWI entre 0.1 y 0.4 es ideal para la mayoría de cultivos
+                                        return np.clip((ndwi - 0.1) / (0.4 - 0.1), 0, 1)
+
+                                    gdf_analizado['solar_norm'] = gdf_analizado['radiacion_solar'].apply(normalizar_solar)
+                                    gdf_analizado['viento_norm'] = gdf_analizado['viento_2m'].apply(normalizar_viento)
+                                    gdf_analizado['humedad_norm'] = gdf_analizado['ndwi'].apply(normalizar_humedad)
+
+                                    # --- Paso 3: Calcular índice integrado ---
+                                    # Ponderaciones agronómicas típicas
+                                    w_fertilidad = 0.40
+                                    w_solar = 0.25
+                                    w_humedad = 0.20
+                                    w_viento = 0.15
+
+                                    gdf_analizado['potencial_cosecha'] = (
+                                        w_fertilidad * gdf_analizado['npk_actual'] +
+                                        w_solar * gdf_analizado['solar_norm'] +
+                                        w_humedad * gdf_analizado['humedad_norm'] +
+                                        w_viento * gdf_analizado['viento_norm']
+                                    ).clip(0, 1)
+
+                                    # Escalar a toneladas/ha según cultivo base
+                                    produccion_base = {
+                                        'PALMA ACEITERA': 20,  # t/ha de fruto
+                                        'CACAO': 1.2,          # t/ha de cacao seco
+                                        'BANANO': 35,          # t/ha
+                                        'CAFÉ': 2.5            # t/ha de café pergamino
+                                    }
+                                    base = produccion_base.get(cultivo, 10)
+                                    gdf_analizado['produccion_estimada'] = gdf_analizado['potencial_cosecha'] * base
+
+                                    # --- Paso 4: Mostrar métricas resumen ---
+                                    col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+                                    with col_c1:
+                                        st.metric("Potencial Promedio", f"{gdf_analizado['potencial_cosecha'].mean():.2f}")
+                                    with col_c2:
+                                        st.metric("Máximo", f"{gdf_analizado['potencial_cosecha'].max():.2f}")
+                                    with col_c3:
+                                        st.metric("Producción Estimada", f"{gdf_analizado['produccion_estimada'].mean():.1f} t/ha")
+                                    with col_c4:
+                                        total_est = (gdf_analizado['produccion_estimada'] * gdf_analizado['area_ha']).sum()
+                                        st.metric("Total Parcela", f"{total_est:.1f} t")
+
+                                    # --- Paso 5: Crear mapa de calor ---
+                                    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+                                    cmap = LinearSegmentedColormap.from_list('cosecha', ['#f7f7f7', '#e6f598', '#abdda4', '#66c2a5', '#3288bd', '#5e4fa2'])
+                                    gdf_analizado.plot(
+                                        column='potencial_cosecha',
+                                        cmap=cmap,
+                                        linewidth=0.8,
+                                        edgecolor='black',
+                                        alpha=0.9,
+                                        legend=True,
+                                        ax=ax,
+                                        legend_kwds={'label': "Potencial de Cosecha (0–1)", 'orientation': "horizontal"}
+                                    )
+                                    # Etiquetas por zona
+                                    for idx, row in gdf_analizado.iterrows():
+                                        centroid = row.geometry.centroid
+                                        ax.annotate(
+                                            f"Z{row['id_zona']}\n{row['produccion_estimada']:.1f}",
+                                            (centroid.x, centroid.y),
+                                            xytext=(3, 3),
+                                            textcoords="offset points",
+                                            fontsize=7,
+                                            color='black',
+                                            weight='bold',
+                                            bbox=dict(boxstyle="round,pad=0.2", facecolor='white', alpha=0.8)
+                                        )
+                                    ax.set_title(f"🗺️ Mapa de Potencial de Cosecha - {cultivo}", fontsize=16, fontweight='bold')
+                                    ax.set_xlabel("Longitud")
+                                    ax.set_ylabel("Latitud")
+                                    ax.grid(True, alpha=0.2)
+                                    plt.tight_layout()
+                                    st.pyplot(fig)
+
+                                    # --- Paso 6: Interpretación ---
+                                    prom_pot = gdf_analizado['potencial_cosecha'].mean()
+                                    if prom_pot > 0.75:
+                                        st.success("✅ **Alto potencial**: Condiciones óptimas de suelo y clima.")
+                                    elif prom_pot > 0.5:
+                                        st.info("ℹ️ **Potencial moderado**: Buenas condiciones, con oportunidades de mejora.")
+                                    else:
+                                        st.warning("⚠️ **Bajo potencial**: Limitado por déficit en fertilidad, agua, luz o estrés por viento.")
+
+                                    # --- Paso 7: Descarga ---
+                                    buf_mapa = io.BytesIO()
+                                    plt.savefig(buf_mapa, format='png', dpi=150, bbox_inches='tight')
+                                    buf_mapa.seek(0)
+                                    st.download_button(
+                                        "📥 Descargar Mapa de Potencial",
+                                        buf_mapa,
+                                        f"potencial_cosecha_{cultivo}_{datetime.now().strftime('%Y%m%d')}.png",
+                                        "image/png"
+                                    )
 
                             def crear_mapa_estatico(gdf, titulo, columna_valor, analisis_tipo, nutriente, cultivo, satelite):
                                 try:
