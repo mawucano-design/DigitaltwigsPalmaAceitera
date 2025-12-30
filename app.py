@@ -26,38 +26,34 @@ import geojson
 import requests
 warnings.filterwarnings('ignore')
 
-# === ESTILOS PERSONALIZADOS CON ALTO CONTRASTE ===
+# === ESTILOS PERSONALIZADOS: FONDO NEGRO + LETRAS BLANCAS EN TODO ===
 st.markdown("""
 <style>
-/* Fondo general de la app */
+/* Fondo GENERAL NEGRO en toda la app */
 .stApp {
-    background: linear-gradient(135deg, #f0f8f5 0%, #e6f2ed 100%);
+    background: linear-gradient(135deg, #000000 0%, #0e1117 100%) !important;
+    color: #ffffff !important;
 }
 
-/* === SIDEBAR: Fondo verde oscuro y texto verde agua claro === */
+/* === SIDEBAR: Fondo verde oscuro + texto blanco/verde agua === */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0a3d2e 0%, #0d513d 100%) !important;
 }
-
-/* Todo el texto dentro del sidebar es BLANCO o verde agua claro */
 [data-testid="stSidebar"] * {
     color: #a8e6cf !important;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6) !important;
 }
-
 .sidebar-title {
     font-size: 1.4em;
     font-weight: bold;
     margin-bottom: 1.2em;
     text-align: center;
     padding: 0.8em;
-    background: rgba(168, 230, 207, 0.2);
+    background: rgba(168, 230, 207, 0.15);
     border-radius: 12px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-    color: #ffffff !important; /* Título del sidebar: blanco */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    color: #ffffff !important;
 }
-
-/* Inputs y selects en sidebar */
 [data-testid="stSidebar"] .stSelectbox div,
 [data-testid="stSidebar"] .stDateInput div,
 [data-testid="stSidebar"] .stSlider label,
@@ -67,7 +63,7 @@ st.markdown("""
     color: #c1f0e0 !important;
 }
 
-/* Botones del sidebar */
+/* Botones (igual que antes, pero con mejor contraste) */
 .stButton > button {
     background: linear-gradient(120deg, #1e7a5d, #0d513d);
     color: white !important;
@@ -76,63 +72,52 @@ st.markdown("""
     border-radius: 8px;
     font-weight: bold;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
 }
 .stButton > button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(26, 118, 93, 0.6);
+    box-shadow: 0 4px 12px rgba(26, 118, 93, 0.7);
     background: linear-gradient(120deg, #2a9d8f, #1e7a5d);
 }
 
-/* === TÍTULO PRINCIPAL (BANNER): fondo verde oscuro + texto BLANCO === */
-.main-title-banner {
-    background: linear-gradient(135deg, #0a3d2e 0%, #0d513d 100%) !important;
-    padding: 1.5em;
-    border-radius: 16px;
-    margin-bottom: 1.5em;
-    box-shadow: 0 4px 20px rgba(10, 61, 46, 0.4);
-}
-
+/* === TÍTULO PRINCIPAL (banner): ya lo defines después con HTML, pero aseguramos coherencia === */
 .main-title-banner h1 {
     color: white !important;
     text-align: center;
     margin: 0;
     font-size: 2.4em;
     font-weight: 700 !important;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-/* === PESTAÑAS (tabs): fondo blanco → texto negro oscuro en TODO el contenido === */
+/* === ¡PESTAÑAS (tabs): AHORA OSCURAS + TEXTO BLANCO! === */
 .stTabs [data-baseweb="tab-list"] {
-    background-color: white !important;
+    background-color: #161c25 !important;
     padding: 8px 16px;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     margin-top: 1em;
 }
-
 .stTabs [data-baseweb="tab"] {
-    color: #333333 !important;
+    color: #e0e0e0 !important;
     font-weight: 600;
     padding: 8px 20px;
     border-radius: 6px;
     margin-right: 6px;
-    background: #f8f9fa;
+    background: #1e2530 !important;
 }
-
 .stTabs [data-baseweb="tab"]:hover {
-    color: #0d513d !important;
-    background-color: #e8f5f0 !important;
+    color: #a8e6cf !important;
+    background-color: #252d3a !important;
 }
-
 .stTabs [aria-selected="true"] {
-    background-color: #ffffff !important;
-    color: #0d513d !important;
+    background-color: #0d513d !important;
+    color: #ffffff !important;
     font-weight: 700;
     border-bottom: 3px solid #2a9d8f;
 }
 
-/* 🔥 ¡IMPORTANTE! Forzar texto negro en TODO el contenido dentro de las pestañas */
+/* === TODO el contenido dentro de pestañas: texto BLANCO === */
 [data-testid="stTabs"] .stMarkdown,
 [data-testid="stTabs"] p,
 [data-testid="stTabs"] div,
@@ -150,59 +135,44 @@ st.markdown("""
 [data-testid="stTabs"] th,
 [data-testid="stTabs"] .stMetricValue,
 [data-testid="stTabs"] .stMetricLabel,
-[data-testid="stTabs"] .stPlotlyChart,
-[data-testid="stTabs"] .stPyplot,
-[data-testid="stTabs"] .stDataFrame,
 [data-testid="stTabs"] .stText,
-[data-testid="stTabs"] .stMarkdown,
-[data-testid="stTabs"] .stCaption {
-    color: #111111 !important;
+[data-testid="stTabs"] .stCaption,
+[data-testid="stTabs"] .stDataFrame {
+    color: #ffffff !important;
     background-color: transparent !important;
 }
 
-/* Asegurar que el texto dentro de métricas sea negro */
+/* Métricas en pestañas */
 [data-testid="stTabs"] div[data-testid="metric-container"] label,
 [data-testid="stTabs"] div[data-testid="metric-container"] div {
-    color: #111111 !important;
+    color: #ffffff !important;
 }
 
-/* Tablas dentro de pestañas */
+/* Tablas y gráficos */
 [data-testid="stTabs"] .stDataFrame table {
-    color: #111111 !important;
+    color: #ffffff !important;
+    background-color: #161c25 !important;
+}
+[data-testid="stTabs"] .stPlotlyChart,
+[data-testid="stTabs"] .stPyplot {
+    background: #161c25 !important;
+    border-radius: 10px;
 }
 
-/* Gráficos: forzar ejes y etiquetas en negro (si se renderizan en pestañas) */
-[data-testid="stTabs"] .plotly .xtick text,
-[data-testid="stTabs"] .plotly .ytick text,
-[data-testid="stTabs"] .plotly .xaxis-title,
-[data-testid="stTabs"] .plotly .yaxis-title {
-    fill: #111111 !important;
-}
-
-/* Evitar que los títulos del cuerpo principal tomen el color del sidebar */
+/* Títulos en el cuerpo principal: ahora BLANCOS (no verdes) */
 .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
-    color: #0d513d !important;
+    color: #ffffff !important;
     font-weight: 700 !important;
-    text-shadow: none !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Expanders */
+.streamlit-expanderHeader {
+    color: #ffffff !important;
+    background: #1a2533 !important;
+    border-radius: 10px !important;
 }
 </style>
-""", unsafe_allow_html=True)
-
-# CONFIGURACIÓN DE PÁGINA - DEBE SER LO PRIMERO
-st.set_page_config(
-    page_title="🌱 Analizador Multi-Cultivo Satellital",
-    layout="wide",
-    page_icon="🛰️"
-)
-
-# Título principal con banner
-st.markdown("""
-<div style="background: linear-gradient(135deg, #1a2a6c 0%, #2a4d69 100%);
-padding: 1.5em; border-radius: 16px; margin-bottom: 1.5em; box-shadow: 0 4px 20px rgba(26, 42, 108, 0.3);">
-<h1 style="color: white; text-align: center; margin: 0; font-size: 2.4em;">
-🛰️ ANALIZADOR MULTI-CULTIVO TROPICAL - PALMA, CACAO, BANANO, CAFÉ
-</h1>
-</div>
 """, unsafe_allow_html=True)
 
 # ===== CONFIGURACIÓN DE SATÉLITES DISPONIBLES =====
