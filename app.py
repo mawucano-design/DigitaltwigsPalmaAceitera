@@ -7,6 +7,7 @@ import os
 import zipfile
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
+from matplotlib.tri import Triangulation
 import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
 import io
@@ -51,7 +52,7 @@ st.markdown("""
 [data-testid="stSidebar"] .stText,
 [data-testid="stSidebar"] .stTitle,
 [data-testid="stSidebar"] .stSubheader {
-    color: #111111 !important;
+    color: #ffffff !important;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
 }
 
@@ -64,7 +65,7 @@ st.markdown("""
     padding: 12px;
     background: rgba(168, 230, 207, 0.2);
     border-radius: 12px;
-    color: #111111 !important;
+    color: #ffffff !important;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -72,7 +73,7 @@ st.markdown("""
 [data-testid="stSidebar"] .stSelectbox div,
 [data-testid="stSidebar"] .stDateInput div,
 [data-testid="stSidebar"] .stSlider label {
-    color: #111111 !important;
+    color: #e0f2e9 !important;
 }
 
 /* Botones del sidebar → blanco sobre fondo oscuro */
@@ -98,21 +99,42 @@ h1, h2, h3, h4 {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-padding: 8px 16px;
+/* === PESTAÑAS (tabs): fondo blanco → texto NEGRO OSCURO === */
+.stTabs [data-baseweb="tab-list"] {
+    background-color: white !important;
+    padding: 8px 16px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     margin-top: 1em;
 }
-
 .stTabs [data-baseweb="tab"] {
-…    background-color: #e8f5f0 !important;
+    color: #000000 !important;  /* NEGRO OSCURO */
+    font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 6px;
+    margin-right: 6px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
 }
-
+.stTabs [data-baseweb="tab"]:hover {
+    color: #000000 !important;  /* NEGRO OSCURO también en hover */
+    background-color: #e9ecef !important;
+    transform: translateY(-2px);
+}
 .stTabs [aria-selected="true"] {
     background-color: #ffffff !important;
-    color: #111111 !important;
+    color: #000000 !important;  /* NEGRO OSCURO para pestaña activa */
     font-weight: 700;
     border-bottom: 3px solid #2a9d8f;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Asegurar que todo el texto en tabs sea negro oscuro */
+.stTabs [data-baseweb="tab"] div,
+.stTabs [data-baseweb="tab"] span,
+.stTabs [aria-selected="true"] div,
+.stTabs [aria-selected="true"] span {
+    color: #000000 !important;
 }
 
 /* === MÉTRICAS (tarjetas): fondo oscuro, texto blanco === */
@@ -1543,70 +1565,183 @@ def crear_mapa_texturas_con_esri(gdf_analizado, cultivo):
         return None
 
 def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
-    """Crea mapa de calor de potencial de cosecha con fondo ESRI"""
+    """Crea mapa de calor moderno tipo Dazzet con fondo ESRI"""
     try:
         # Convertir a Web Mercator
         gdf_plot = gdf_analizado.to_crs(epsg=3857)
         
-        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+        fig, ax = plt.subplots(1, 1, figsize=(14, 10))
         
-        # Usar paleta de calor (hot) para zonas de mejor cosecha
-        cmap = plt.cm.hot
-        
-        # Extraer centroides para el heatmap
+        # Obtener centroides y valores
         centroids = gdf_plot.geometry.centroid
-        x_coords = [c.x for c in centroids]
-        y_coords = [c.y for c in centroids]
-        valores = gdf_plot['potencial_cosecha'].values
+        x = [c.x for c in centroids]
+        y = [c.y for c in centroids]
+        z = gdf_plot['potencial_cosecha'].values
         
-        # Crear heatmap de puntos
-        heatmap = ax.scatter(x_coords, y_coords, c=valores, cmap=cmap, 
-                            s=200, alpha=0.8, edgecolors='black', linewidth=1)
+        # Crear triangulación para mapa de calor continuo
+        triang = Triangulation(x, y)
         
-        # Dibujar polígonos con transparencia
-        gdf_plot.plot(ax=ax, color='none', edgecolor='black', linewidth=1, alpha=0.5)
+        # Crear mapa de calor con degradado suave (similar a Dazzet)
+        levels = np.linspace(0, 1, 50)
+        contour = ax.tricontourf(
+            triang, z, 
+            levels=levels, 
+            cmap='RdYlGn',  # Colores rojo-amarillo-verde
+            alpha=0.85,      # Mayor transparencia
+            antialiased=True
+        )
         
-        # Etiquetas de zonas con valores
+        # Añadir contornos para mejor definición
+        ax.tricontour(
+            triang, z, 
+            levels=levels[::5],  # Cada 5 niveles
+            colors='white', 
+            linewidths=0.5, 
+            alpha=0.3
+        )
+        
+        # Dibujar polígonos de las zonas con borde sutil
+        gdf_plot.plot(
+            ax=ax, 
+            color='none', 
+            edgecolor='rgba(255, 255, 255, 0.4)',  # Blanco semi-transparente
+            linewidth=0.8, 
+            alpha=0.6
+        )
+        
+        # Etiquetas modernas para zonas
         for idx, row in gdf_plot.iterrows():
             centroid = row.geometry.centroid
-            ax.annotate(f"Z{row['id_zona']}\n{row['potencial_cosecha']:.2f}", 
-                       (centroid.x, centroid.y),
-                       xytext=(3, 3), textcoords="offset points",
-                       fontsize=7, color='black', weight='bold',
-                       bbox=dict(boxstyle="round,pad=0.2", facecolor='white', alpha=0.8))
+            valor = row['potencial_cosecha']
+            
+            # Color de texto basado en valor
+            text_color = 'white' if valor < 0.5 else 'black'
+            
+            ax.annotate(
+                f"Z{row['id_zona']}\n{valor:.2f}", 
+                (centroid.x, centroid.y),
+                xytext=(0, 0), 
+                textcoords="offset points",
+                fontsize=8, 
+                color=text_color, 
+                weight='bold',
+                ha='center',
+                va='center',
+                bbox=dict(
+                    boxstyle="round,pad=0.3", 
+                    facecolor=f'rgba(255, 255, 255, {0.7 if valor > 0.5 else 0.3})',
+                    edgecolor='none',
+                    alpha=0.9
+                )
+            )
         
-        # Agregar mapa base ESRI Satellite
+        # Agregar mapa base ESRI Satellite con mayor transparencia
         try:
-            ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery, alpha=0.5)
+            ctx.add_basemap(
+                ax, 
+                source=ctx.providers.Esri.WorldImagery, 
+                alpha=0.4  # Más transparente para ver mejor el calor
+            )
         except:
-            st.warning("⚠️ No se pudo cargar el mapa base ESRI. Verifica la conexión a internet.")
+            # Fondo degradado si falla ESRI
+            ax.set_facecolor('#f8f9fa')
         
-        ax.set_title(f"🔥 MAPA DE CALOR - POTENCIAL DE COSECHA - {cultivo}", 
-                    fontsize=16, fontweight='bold')
-        ax.set_xlabel("Longitud")
-        ax.set_ylabel("Latitud")
-        ax.grid(True, alpha=0.2)
+        # Título estilizado
+        ax.set_title(
+            f"🔥 MAPA DE CALOR - POTENCIAL DE COSECHA - {cultivo}", 
+            fontsize=18, 
+            fontweight='bold',
+            pad=20,
+            color='#2c3e50'
+        )
         
-        # Barra de colores
-        cbar = plt.colorbar(heatmap, ax=ax, shrink=0.8)
-        cbar.set_label("Potencial de Cosecha (0-1)", fontsize=12, fontweight='bold')
+        ax.set_xlabel("Longitud", fontsize=12, fontweight='medium', color='#34495e')
+        ax.set_ylabel("Latitud", fontsize=12, fontweight='medium', color='#34495e')
+        ax.grid(True, alpha=0.2, color='gray', linestyle='--')
         
-        # Resaltar zonas con mejor potencial (>0.7)
+        # Barra de colores moderna
+        cbar = plt.colorbar(
+            contour, 
+            ax=ax, 
+            shrink=0.8,
+            pad=0.02
+        )
+        cbar.set_label(
+            "Potencial de Cosecha (0-1)", 
+            fontsize=12, 
+            fontweight='bold',
+            color='#2c3e50'
+        )
+        cbar.ax.tick_params(labelsize=10, colors='#2c3e50')
+        
+        # Leyenda para puntos calientes
         zonas_calientes = gdf_plot[gdf_plot['potencial_cosecha'] > 0.7]
         if not zonas_calientes.empty:
+            # Puntos amarillos brillantes para zonas calientes
             for idx, row in zonas_calientes.iterrows():
                 centroid = row.geometry.centroid
-                ax.plot(centroid.x, centroid.y, 'yo', markersize=10, 
-                       markeredgecolor='red', markeredgewidth=2)
+                ax.plot(
+                    centroid.x, centroid.y, 
+                    'o',  # Círculo
+                    markersize=12, 
+                    markeredgecolor='#f1c40f',
+                    markeredgewidth=2,
+                    markerfacecolor='#f39c12',
+                    alpha=0.8
+                )
+            
+            # Añadir leyenda
+            from matplotlib.lines import Line2D
+            hot_spot = Line2D(
+                [0], [0], 
+                marker='o', 
+                color='w',
+                markerfacecolor='#f39c12', 
+                markeredgecolor='#f1c40f',
+                markersize=10, 
+                markeredgewidth=2,
+                label='Zona Caliente (Potencial > 0.7)'
+            )
+            ax.legend(
+                handles=[hot_spot], 
+                loc='upper right',
+                framealpha=0.9,
+                facecolor='white'
+            )
+        
+        # Añadir estadísticas en esquina
+        stats_text = f"""
+        Estadísticas:
+        • Promedio: {gdf_plot['potencial_cosecha'].mean():.2f}
+        • Máximo: {gdf_plot['potencial_cosecha'].max():.2f}
+        • Mínimo: {gdf_plot['potencial_cosecha'].min():.2f}
+        • Zonas Calientes: {len(zonas_calientes)}/{len(gdf_plot)}
+        """
+        
+        ax.text(
+            0.02, 0.98, 
+            stats_text,
+            transform=ax.transAxes,
+            fontsize=9,
+            verticalalignment='top',
+            bbox=dict(
+                boxstyle="round,pad=0.5", 
+                facecolor='white', 
+                edgecolor='#3498db',
+                alpha=0.95
+            )
+        )
         
         plt.tight_layout()
         buf = io.BytesIO()
-        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        plt.savefig(buf, format='png', dpi=200, bbox_inches='tight', facecolor='#f8f9fa')
         buf.seek(0)
         plt.close()
         return buf
     except Exception as e:
-        st.error(f"Error creando mapa de calor: {str(e)}")
+        st.error(f"Error creando mapa de calor mejorado: {str(e)}")
+        import traceback
+        st.error(f"Detalle: {traceback.format_exc()}")
         return None
 
 # ===== FUNCIÓN PRINCIPAL DE ANÁLISIS (CORREGIDA) =====
@@ -2053,7 +2188,7 @@ if uploaded_file:
                                     max_viento = serie_viento.max()
                                     min_viento = serie_viento.min()
                                     if prom_viento < 2.0:
-                                        interpretacion = "🍃 **Viento suave**: Bajo riesgo de estrés mecánico o deshidratación."
+                                        interpretacion = "🍃 **Viento suave**: Bajo riesgo de estrés mecánico o deshidratación.")
                                     elif prom_viento < 4.0:
                                         interpretacion = "🌬️ **Viento moderado**: Aceptable; monitorear en etapas sensibles (floración, fruto joven)."
                                     else:
