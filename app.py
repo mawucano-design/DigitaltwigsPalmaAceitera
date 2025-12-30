@@ -26,358 +26,247 @@ import geojson
 import requests
 warnings.filterwarnings('ignore')
 
-# === ESTILOS PERSONALIZADOS PARA INTERFAZ MEJORADA ===
+# ========================================
+# ✨ ESTILOS MODERNOS (DARK MODE + DASHBOARD)
+# ========================================
 st.markdown("""
 <style>
-/* Fondo general limpio */
+/* Fondo de la app */
 .stApp {
-    background: white;
+    background-color: #0e1117;
+    color: #e0e0e0;
 }
 
-/* SIDEBAR: fondo blanco, texto negro */
+/* Sidebar oscuro */
 [data-testid="stSidebar"] {
-    background: white !important;
+    background-color: #1a1f25 !important;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
 }
+
+/* Texto del sidebar */
 [data-testid="stSidebar"] * {
-    color: black !important;
-    text-shadow: none !important;
+    color: #e0e0e0 !important;
 }
 
+/* Título del sidebar */
 .sidebar-title {
-    font-size: 1.4em;
+    font-size: 1.5em;
     font-weight: bold;
-    margin-bottom: 1.2em;
+    margin: 1.5em 0 1em 0;
     text-align: center;
-    padding: 0.8em;
-    background: #f0f0f0;
+    padding: 12px;
+    background: rgba(30, 30, 40, 0.6);
     border-radius: 12px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    color: black !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* Inputs y selects en sidebar */
+/* Inputs y selects */
 [data-testid="stSidebar"] .stSelectbox div,
 [data-testid="stSidebar"] .stDateInput div,
 [data-testid="stSidebar"] .stSlider label {
-    color: black !important;
+    color: #c0c0c0 !important;
 }
 
-/* Botones con alto contraste */
+/* Botones modernos */
 .stButton > button {
-    background: #2c3e50;
+    background: linear-gradient(135deg, #2a4d69, #1a2a6c);
     color: white !important;
     border: none;
-    padding: 0.6em 1.2em;
-    border-radius: 8px;
+    padding: 0.7em 1.4em;
+    border-radius: 10px;
     font-weight: bold;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 10px rgba(26, 42, 108, 0.4);
+    transition: all 0.3s ease;
 }
 .stButton > button:hover {
-    background: #1a252f;
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    box-shadow: 0 6px 15px rgba(26, 42, 108, 0.6);
+    background: linear-gradient(135deg, #1a2a6c, #2a4d69);
 }
 
-/* Títulos en negro */
-h1, h2, h3, h4, h5, h6 {
-    color: black !important;
+/* Métricas estilo tarjeta */
+div[data-testid="metric-container"] {
+    background: rgba(30, 35, 50, 0.7);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(100, 149, 237, 0.3);
+}
+
+/* Títulos */
+h1, h2, h3, h4 {
+    color: #ffffff !important;
     font-weight: 700 !important;
-    text-shadow: none !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* PESTAÑAS: fondo blanco, texto negro */
+/* Pestañas modernas */
 .stTabs [data-baseweb="tab-list"] {
-    background-color: white !important;
-    padding: 8px 16px;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    margin-top: 1em;
+    background: rgba(26, 30, 40, 0.8);
+    padding: 12px 20px;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    margin-top: 1.5em;
+    gap: 8px;
 }
 .stTabs [data-baseweb="tab"] {
-    color: black !important;
+    color: #a0a0c0 !important;
     font-weight: 600;
-    padding: 8px 20px;
-    border-radius: 6px;
-    margin-right: 6px;
+    padding: 10px 22px;
+    border-radius: 10px;
+    background: rgba(40, 45, 60, 0.6);
+    transition: all 0.2s;
 }
 .stTabs [data-baseweb="tab"]:hover {
-    color: #2c3e50 !important;
-    background-color: #f8f9fa !important;
+    color: #ffffff !important;
+    background: rgba(60, 70, 90, 0.6);
 }
 .stTabs [aria-selected="true"] {
-    background-color: white !important;
-    color: #2c3e50 !important;
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #1a2a6c, #2a4d69) !important;
     font-weight: 700;
-    border-bottom: 3px solid #3498db;
+    box-shadow: 0 4px 10px rgba(26, 42, 108, 0.4);
+}
+
+/* Gráficos con fondo oscuro */
+.stPlotlyChart, .stPyplot {
+    background: rgba(20, 25, 35, 0.4);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Expander */
+.streamlit-expanderHeader {
+    color: #e0e0e0 !important;
+    background: rgba(30, 35, 50, 0.6) !important;
+    border-radius: 10px !important;
 }
 </style>
 """, unsafe_allow_html=True)
-# CONFIGURACIÓN DE PÁGINA - DEBE SER LO PRIMERO
+
+# ========================================
+# 🚀 CONFIGURACIÓN INICIAL
+# ========================================
 st.set_page_config(
-page_title="🌱 Analizador Multi-Cultivo Satellital",
-layout="wide",
-page_icon="🛰️"
+    page_title="🌱 Analizador Multi-Cultivo Satellital",
+    layout="wide",
+    page_icon="🛰️"
 )
-# Título principal con banner
+
+# Título principal moderno
 st.markdown("""
 <div style="background: linear-gradient(135deg, #1a2a6c 0%, #2a4d69 100%);
-padding: 1.5em; border-radius: 16px; margin-bottom: 1.5em; box-shadow: 0 4px 20px rgba(26, 42, 108, 0.3);">
-<h1 style="color: white; text-align: center; margin: 0; font-size: 2.4em;">
-🛰️ ANALIZADOR MULTI-CULTIVO TROPICAL - PALMA, CACAO, BANANO, CAFÉ
+padding: 1.8em; border-radius: 20px; margin-bottom: 1.8em; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);">
+<h1 style="color: white; text-align: center; margin: 0; font-size: 2.6em; font-weight: 800;">
+🛰️ ANALIZADOR INTELIGENTE DE CULTIVOS TROPICALES
 </h1>
+<p style="color: #c0d6f0; text-align: center; margin-top: 0.5em; font-size: 1.1em;">
+Palma, Cacao, Banano, Café • Integración Satelital + NASA POWER + Análisis de Suelo
+</p>
 </div>
 """, unsafe_allow_html=True)
 
-# ===== CONFIGURACIÓN DE SATÉLITES DISPONIBLES =====
+# ========================================
+# 🛠️ CONFIGURACIÓN PRINCIPAL
+# ========================================
 SATELITES_DISPONIBLES = {
-'SENTINEL-2': {
-'nombre': 'Sentinel-2',
-'resolucion': '10m',
-'revisita': '5 días',
-'bandas': ['B2', 'B3', 'B4', 'B5', 'B8', 'B11'],
-'indices': ['NDVI', 'NDRE', 'GNDVI', 'OSAVI', 'MCARI'],
-'icono': '🛰️'
-},
-'LANDSAT-8': {
-'nombre': 'Landsat 8',
-'resolucion': '30m',
-'revisita': '16 días',
-'bandas': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-'indices': ['NDVI', 'NDWI', 'EVI', 'SAVI', 'MSAVI'],
-'icono': '🛰️'
-},
-'DATOS_SIMULADOS': {
-'nombre': 'Datos Simulados',
-'resolucion': '10m',
-'revisita': '5 días',
-'bandas': ['B2', 'B3', 'B4', 'B5', 'B8'],
-'indices': ['NDVI', 'NDRE', 'GNDVI'],
-'icono': '🔬'
-}
+    'SENTINEL-2': {'nombre': 'Sentinel-2', 'resolucion': '10m', 'revisita': '5 días', 'indices': ['NDVI', 'NDRE', 'GNDVI'], 'icono': '🛰️'},
+    'LANDSAT-8': {'nombre': 'Landsat 8', 'resolucion': '30m', 'revisita': '16 días', 'indices': ['NDVI', 'NDWI', 'EVI'], 'icono': '🛰️'},
+    'DATOS_SIMULADOS': {'nombre': 'Datos Simulados', 'resolucion': '10m', 'revisita': '5 días', 'indices': ['NDVI', 'NDRE'], 'icono': '🔬'}
 }
 
-# ===== CONFIGURACIÓN =====
-# PARÁMETROS GEE POR CULTIVO
 PARAMETROS_CULTIVOS = {
-'PALMA ACEITERA': {
-'NITROGENO': {'min': 180, 'max': 250},
-'FOSFORO': {'min': 40, 'max': 60},
-'POTASIO': {'min': 250, 'max': 350},
-'MATERIA_ORGANICA_OPTIMA': 4.0,
-'HUMEDAD_OPTIMA': 0.35,
-'NDVI_OPTIMO': 0.85,
-'NDRE_OPTIMO': 0.5
-},
-'CACAO': {
-'NITROGENO': {'min': 100, 'max': 150},
-'FOSFORO': {'min': 30, 'max': 50},
-'POTASIO': {'min': 120, 'max': 180},
-'MATERIA_ORGANICA_OPTIMA': 5.0,
-'HUMEDAD_OPTIMA': 0.3,
-'NDVI_OPTIMO': 0.75,
-'NDRE_OPTIMO': 0.4
-},
-'BANANO': {
-'NITROGENO': {'min': 200, 'max': 300},
-'FOSFORO': {'min': 50, 'max': 80},
-'POTASIO': {'min': 300, 'max': 450},
-'MATERIA_ORGANICA_OPTIMA': 3.5,
-'HUMEDAD_OPTIMA': 0.4,
-'NDVI_OPTIMO': 0.9,
-'NDRE_OPTIMO': 0.45
-},
-'CAFÉ': {
-'NITROGENO': {'min': 120, 'max': 180},
-'FOSFORO': {'min': 25, 'max': 45},
-'POTASIO': {'min': 150, 'max': 220},
-'MATERIA_ORGANICA_OPTIMA': 4.5,
-'HUMEDAD_OPTIMA': 0.28,
-'NDVI_OPTIMO': 0.7,
-'NDRE_OPTIMO': 0.35
-}
+    'PALMA ACEITERA': {
+        'NITROGENO': {'min': 180, 'max': 250},
+        'FOSFORO': {'min': 40, 'max': 60},
+        'POTASIO': {'min': 250, 'max': 350},
+        'MATERIA_ORGANICA_OPTIMA': 4.0,
+        'HUMEDAD_OPTIMA': 0.35,
+        'NDVI_OPTIMO': 0.85,
+        'NDRE_OPTIMO': 0.5
+    },
+    'CACAO': {
+        'NITROGENO': {'min': 100, 'max': 150},
+        'FOSFORO': {'min': 30, 'max': 50},
+        'POTASIO': {'min': 120, 'max': 180},
+        'MATERIA_ORGANICA_OPTIMA': 5.0,
+        'HUMEDAD_OPTIMA': 0.3,
+        'NDVI_OPTIMO': 0.75,
+        'NDRE_OPTIMO': 0.4
+    },
+    'BANANO': {
+        'NITROGENO': {'min': 200, 'max': 300},
+        'FOSFORO': {'min': 50, 'max': 80},
+        'POTASIO': {'min': 300, 'max': 450},
+        'MATERIA_ORGANICA_OPTIMA': 3.5,
+        'HUMEDAD_OPTIMA': 0.4,
+        'NDVI_OPTIMO': 0.9,
+        'NDRE_OPTIMO': 0.45
+    },
+    'CAFÉ': {
+        'NITROGENO': {'min': 120, 'max': 180},
+        'FOSFORO': {'min': 25, 'max': 45},
+        'POTASIO': {'min': 150, 'max': 220},
+        'MATERIA_ORGANICA_OPTIMA': 4.5,
+        'HUMEDAD_OPTIMA': 0.28,
+        'NDVI_OPTIMO': 0.7,
+        'NDRE_OPTIMO': 0.35
+    }
 }
 
-# PARÁMETROS DE TEXTURA DEL SUELO POR CULTIVO
 TEXTURA_SUELO_OPTIMA = {
-'PALMA ACEITERA': {
-'textura_optima': 'Franco Arcilloso',
-'arena_optima': 35,
-'limo_optima': 30,
-'arcilla_optima': 35,
-'densidad_aparente_optima': 1.2,
-'porosidad_optima': 0.55
-},
-'CACAO': {
-'textura_optima': 'Franco',
-'arena_optima': 45,
-'limo_optima': 35,
-'arcilla_optima': 20,
-'densidad_aparente_optima': 1.1,
-'porosidad_optima': 0.6
-},
-'BANANO': {
-'textura_optima': 'Franco',
-'arena_optima': 50,
-'limo_optima': 30,
-'arcilla_optima': 20,
-'densidad_aparente_optima': 1.25,
-'porosidad_optima': 0.5
-},
-'CAFÉ': {
-'textura_optima': 'Franco Volcánico',
-'arena_optima': 40,
-'limo_optima': 40,
-'arcilla_optima': 20,
-'densidad_aparente_optima': 0.9,
-'porosidad_optima': 0.65
-}
+    'PALMA ACEITERA': {'textura_optima': 'Franco Arcilloso', 'arena_optima': 35, 'limo_optima': 30, 'arcilla_optima': 35},
+    'CACAO': {'textura_optima': 'Franco', 'arena_optima': 45, 'limo_optima': 35, 'arcilla_optima': 20},
+    'BANANO': {'textura_optima': 'Franco', 'arena_optima': 50, 'limo_optima': 30, 'arcilla_optima': 20},
+    'CAFÉ': {'textura_optima': 'Franco Volcánico', 'arena_optima': 40, 'limo_optima': 40, 'arcilla_optima': 20}
 }
 
-# CLASIFICACIÓN DE PENDIENTES
-CLASIFICACION_PENDIENTES = {
-'PLANA (0-2%)': {'min': 0, 'max': 2, 'color': '#4daf4a', 'factor_erosivo': 0.1},
-'SUAVE (2-5%)': {'min': 2, 'max': 5, 'color': '#a6d96a', 'factor_erosivo': 0.3},
-'MODERADA (5-10%)': {'min': 5, 'max': 10, 'color': '#ffffbf', 'factor_erosivo': 0.6},
-'FUERTE (10-15%)': {'min': 10, 'max': 15, 'color': '#fdae61', 'factor_erosivo': 0.8},
-'MUY FUERTE (15-25%)': {'min': 15, 'max': 25, 'color': '#f46d43', 'factor_erosivo': 0.9},
-'EXTREMA (>25%)': {'min': 25, 'max': 100, 'color': '#d73027', 'factor_erosivo': 1.0}
-}
-
-# RECOMENDACIONES POR TIPO DE TEXTURA (ACTUALIZADO)
 RECOMENDACIONES_TEXTURA = {
-'Franco': {
-'propiedades': [
-"Equilibrio arena-limo-arcilla",
-"Buena aireación y drenaje",
-"CIC Intermedia-alta",
-"Retención de agua adecuada"
-],
-'limitantes': [
-"Puede compactarse con maquinaria pesada",
-"Erosión en pendientes si no hay cobertura"
-],
-'manejo': [
-"Mantener coberturas vivas o muertas",
-"Evitar tránsito excesivo de maquinaria",
-"Fertilización eficiente, sin muchas pérdidas",
-"Ideal para siembra directa"
-]
-},
-'Franco Arcilloso': {
-'propiedades': [
-"Mayor proporción de arcilla (25–35%)",
-"Alta retención de agua y nutrientes",
-"Drenaje natural lento",
-"Buena fertilidad natural"
-],
-'limitantes': [
-"Riesgo de encharcamiento",
-"Compactación fácil",
-"Menor oxigenación radicular"
-],
-'manejo': [
-"Implementar drenajes (canales y subdrenes)",
-"Subsolado previo a siembra",
-"Incorporar materia orgánica (rastrojos, compost)",
-"Fertilización fraccionada en lluvias intensas"
-]
-},
-'Franco Arcilloso-Arenoso': {
-'propiedades': [
-"Arena 40–50%, arcilla 20–30%",
-"Buen desarrollo radicular",
-"Mayor drenaje que franco arcilloso",
-"Retención de agua moderada-baja"
-],
-'limitantes': [
-"Riesgo de lixiviación de nutrientes",
-"Estrés hídrico en veranos",
-"Fertilidad moderada"
-],
-'manejo': [
-"Uso de coberturas leguminosas",
-"Aplicar mulching (rastrojos, paja)",
-"Riego suplementario en sequía",
-"Fertilización fraccionada y frecuente"
-]
-}
+    'Franco': {
+        'propiedades': ["Equilibrio arena-limo-arcilla", "Buena aireación y drenaje"],
+        'limitantes': ["Puede compactarse con maquinaria pesada"],
+        'manejo': ["Mantener coberturas vivas", "Evitar tránsito excesivo"]
+    },
+    'Franco Arcilloso': {
+        'propiedades': ["Alta retención de agua y nutrientes", "Buena fertilidad natural"],
+        'limitantes': ["Riesgo de encharcamiento", "Compactación fácil"],
+        'manejo': ["Implementar drenajes", "Incorporar materia orgánica"]
+    },
+    'Franco Arcilloso-Arenoso': {
+        'propiedades': ["Arena 40–50%, arcilla 20–30%", "Buen desarrollo radicular"],
+        'limitantes': ["Riesgo de lixiviación", "Estrés hídrico en veranos"],
+        'manejo': ["Uso de coberturas leguminosas", "Riego suplementario en sequía"]
+    }
 }
 
-# ICONOS Y COLORES POR CULTIVO
-ICONOS_CULTIVOS = {
-'PALMA ACEITERA': '🌴',
-'CACAO': '🍫',
-'BANANO': '🍌',
-'CAFÉ': '☕'
-}
-COLORES_CULTIVOS = {
-'PALMA ACEITERA': '#228B22',
-'CACAO': '#654321',
-'BANANO': '#FFD700',
-'CAFÉ': '#8B4513'
-}
-
-# PALETAS GEE MEJORADAS
-PALETAS_GEE = {
-'FERTILIDAD': ['#d73027', '#f46d43', '#fdae61', '#fee08b', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837'],
-'NITROGENO': ['#00ff00', '#80ff00', '#ffff00', '#ff8000', '#ff0000'],
-'FOSFORO': ['#0000ff', '#4040ff', '#8080ff', '#c0c0ff', '#ffffff'],
-'POTASIO': ['#4B0082', '#6A0DAD', '#8A2BE2', '#9370DB', '#D8BFD8'],
-'TEXTURA': ['#8c510a', '#d8b365', '#f6e8c3', '#c7eae5', '#5ab4ac', '#01665e'],
-'ELEVACION': ['#006837', '#1a9850', '#66bd63', '#a6d96a', '#d9ef8b', '#ffffbf', '#fee08b', '#fdae61', '#f46d43', '#d73027'],
-'PENDIENTE': ['#4daf4a', '#a6d96a', '#ffffbf', '#fdae61', '#f46d43', '#d73027']
-}
-
-# URLs de imágenes para sidebar
+ICONOS_CULTIVOS = {'PALMA ACEITERA': '🌴', 'CACAO': '🍫', 'BANANO': '🍌', 'CAFÉ': '☕'}
 IMAGENES_CULTIVOS = {
-'PALMA ACEITERA': 'https://images.unsplash.com/photo-1597981309443-6e2d2a4d9c3f?auto=format&fit=crop&w=200&h=150&q=80',
-'CACAO': 'https://images.unsplash.com/photo-1606312619070-d48b4c652a52?auto=format&fit=crop&w=200&h=150&q=80',
-'BANANO': 'https://images.unsplash.com/photo-1587479535213-1f3c862e2f1e?auto=format&fit=crop&w=200&h=150&q=80',
-'CAFÉ': 'https://images.unsplash.com/photo-1495498882177-2a843e5c2a36?auto=format&fit=crop&w=200&h=150&q=80'
+    'PALMA ACEITERA': 'https://images.unsplash.com/photo-1597981309443-6e2d2a4d9c3f?auto=format&fit=crop&w=200&h=150&q=80',
+    'CACAO': 'https://images.unsplash.com/photo-1606312619070-d48b4c652a52?auto=format&fit=crop&w=200&h=150&q=80',
+    'BANANO': 'https://images.unsplash.com/photo-1587479535213-1f3c862e2f1e?auto=format&fit=crop&w=200&h=150&q=80',
+    'CAFÉ': 'https://images.unsplash.com/photo-1495498882177-2a843e5c2a36?auto=format&fit=crop&w=200&h=150&q=80'
 }
 
-# ===== INICIALIZACIÓN SEGURA DE VARIABLES DE CONFIGURACIÓN =====
-nutriente = None
-satelite_seleccionado = "SENTINEL-2"
-indice_seleccionado = "NDVI"
-fecha_inicio = datetime.now() - timedelta(days=30)
-fecha_fin = datetime.now()
-intervalo_curvas = 5.0
-resolucion_dem = 10.0
-
-# ===== SIDEBAR MEJORADO (INTERFAZ VISUAL) =====
-# ===== SIDEBAR MEJORADO (INTERFAZ VISUAL) =====
+# ========================================
+# 🎛️ SIDEBAR (CONFIGURACIÓN)
+# ========================================
 with st.sidebar:
     st.markdown('<div class="sidebar-title">⚙️ CONFIGURACIÓN</div>', unsafe_allow_html=True)
-    cultivo = st.selectbox("Cultivo:", ["TRIGO", "SOJA", "MAÍZ", "SORGO", "GIRASOL"])
+    cultivo = st.selectbox("Cultivo:", ["PALMA ACEITERA", "CACAO", "BANANO", "CAFÉ"])
     st.image(IMAGENES_CULTIVOS[cultivo], use_container_width=True)
     analisis_tipo = st.selectbox("Tipo de Análisis:", ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK", "ANÁLISIS DE TEXTURA", "ANÁLISIS DE CURVAS DE NIVEL"])
     if analisis_tipo == "RECOMENDACIONES NPK":
         nutriente = st.selectbox("Nutriente:", ["NITRÓGENO", "FÓSFORO", "POTASIO"])
     
     st.subheader("🛰️ Fuente de Datos Satelitales")
-    satelite_seleccionado = st.selectbox(
-        "Satélite:",
-        ["SENTINEL-2", "LANDSAT-8", "DATOS_SIMULADOS"],
-        help="Selecciona la fuente de datos satelitales"
-    )
-    if satelite_seleccionado in SATELITES_DISPONIBLES:
-        info_satelite = SATELITES_DISPONIBLES[satelite_seleccionado]
-        st.info(f"""
-        **{info_satelite['icono']} {info_satelite['nombre']}**
-        - Resolución: {info_satelite['resolucion']}
-        - Revisita: {info_satelite['revisita']}
-        - Índices: {', '.join(info_satelite['indices'][:3])}
-        """)
+    satelite_seleccionado = st.selectbox("Satélite:", ["SENTINEL-2", "LANDSAT-8", "DATOS_SIMULADOS"])
     
     if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
         st.subheader("📊 Índices de Vegetación")
-        if satelite_seleccionado == "SENTINEL-2":
-            indice_seleccionado = st.selectbox("Índice:", SATELITES_DISPONIBLES['SENTINEL-2']['indices'])
-        elif satelite_seleccionado == "LANDSAT-8":
-            indice_seleccionado = st.selectbox("Índice:", SATELITES_DISPONIBLES['LANDSAT-8']['indices'])
-        else:
-            indice_seleccionado = st.selectbox("Índice:", SATELITES_DISPONIBLES['DATOS_SIMULADOS']['indices'])
+        indices_disponibles = SATELITES_DISPONIBLES[satelite_seleccionado]['indices']
+        indice_seleccionado = st.selectbox("Índice:", indices_disponibles)
 
     if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
         st.subheader("📅 Rango Temporal")
@@ -385,16 +274,11 @@ with st.sidebar:
         fecha_inicio = st.date_input("Fecha inicio", datetime.now() - timedelta(days=30))
 
     st.subheader("🎯 División de Parcela")
-    n_divisiones = st.slider("Número de zonas de manejo:", min_value=16, max_value=48, value=32)
-
-    if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
-        st.subheader("🏔️ Configuración Curvas de Nivel")
-        intervalo_curvas = st.slider("Intervalo entre curvas (metros):", 1.0, 20.0, 5.0, 1.0)
-        resolucion_dem = st.slider("Resolución DEM (metros):", 5.0, 50.0, 10.0, 5.0)
+    n_divisiones = st.slider("Número de zonas:", min_value=16, max_value=48, value=32)
 
     st.subheader("📤 Subir Parcela")
-    uploaded_file = st.file_uploader("Subir archivo de tu parcela", type=['zip', 'kml', 'kmz'],
-                                     help="Formatos aceptados: Shapefile (.zip), KML (.kml), KMZ (.kmz)")
+    uploaded_file = st.file_uploader("Archivo de parcela", type=['zip', 'kml', 'kmz'])
+
 
 # ===== FUNCIONES AUXILIARES - CORREGIDAS PARA EPSG:4326 =====
 def validar_y_corregir_crs(gdf):
