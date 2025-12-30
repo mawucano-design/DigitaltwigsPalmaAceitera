@@ -107,7 +107,7 @@ h1, h2, h3, h4 {
     margin-top: 1em;
 }
 .stTabs [data-baseweb="tab"] {
-    color: #333333 !important;
+    color: #222222 !important;
     font-weight: 600;
     padding: 8px 20px;
     border-radius: 6px;
