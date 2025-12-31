@@ -438,7 +438,7 @@ st.set_page_config(
     page_icon="🛰️"
 )
 
-# HERO BANNER PRINCIPAL CON IMAGEN DE PALMA ACEITERA
+# HERO BANNER PRINCIPAL - VERSIÓN SIMPLIFICADA Y SEGURA
 st.markdown("""
 <div class="hero-banner">
     <div class="hero-content">
@@ -446,17 +446,17 @@ st.markdown("""
         <p class="hero-subtitle">Sistema de monitoreo satelital avanzado para cultivos tropicales | Palma Aceitera • Cacao • Banano • Café</p>
         
         <div style="margin-top: 30px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 12px 20px; border-radius: 50px; backdrop-filter: blur(10px);">
+            <div style="display: flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 12px 20px; border-radius: 50px;">
                 <span style="font-size: 1.2em; margin-right: 8px;">🛰️</span>
-                <span style="font-weight: 600;">Análisis Satelital en Tiempo Real</span>
+                <span style="font-weight: 600;">Análisis Satelital</span>
             </div>
-            <div style="display: flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 12px 20px; border-radius: 50px; backdrop-filter: blur(10px);">
+            <div style="display: flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 12px 20px; border-radius: 50px;">
                 <span style="font-size: 1.2em; margin-right: 8px;">📊</span>
-                <span style="font-weight: 600;">Recomendaciones NPK Precisas</span>
+                <span style="font-weight: 600;">Recomendaciones NPK</span>
             </div>
-            <div style="display: flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 12px 20px; border-radius: 50px; backdrop-filter: blur(10px);">
+            <div style="display: flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 12px 20px; border-radius: 50px;">
                 <span style="font-size: 1.2em; margin-right: 8px;">🔥</span>
-                <span style="font-weight: 600;">Mapas de Calor Inteligentes</span>
+                <span style="font-weight: 600;">Mapas de Calor</span>
             </div>
         </div>
     </div>
