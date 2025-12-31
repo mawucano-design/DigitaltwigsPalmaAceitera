@@ -95,7 +95,7 @@ st.markdown("""
 [data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] {
     background-color: rgba(255, 255, 255, 0.1) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    color: #ffffff !important;
+    color: #000000 !important;
     border-radius: 8px;
 }
 
