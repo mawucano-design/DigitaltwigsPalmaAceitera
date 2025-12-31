@@ -439,25 +439,53 @@ st.set_page_config(
 )
 
 # HERO BANNER PRINCIPAL - VERSIÓN SIMPLIFICADA Y SEGURA
+# VERSIÓN MÁS SIMPLE Y DIRECTA
 st.markdown("""
-<div class="hero-banner">
-    <div class="hero-content">
-        <h1 class="hero-title">🌴 ANALIZADOR MULTI-CULTIVO INTELIGENTE</h1>
-        <p class="hero-subtitle">Sistema de monitoreo satelital avanzado para cultivos tropicales | Palma Aceitera • Cacao • Banano • Café</p>
-        
-        <div style="margin-top: 30px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 12px 20px; border-radius: 50px;">
-                <span style="font-size: 1.2em; margin-right: 8px;">🛰️</span>
-                <span style="font-weight: 600;">Análisis Satelital</span>
-            </div>
-            <div style="display: flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 12px 20px; border-radius: 50px;">
-                <span style="font-size: 1.2em; margin-right: 8px;">📊</span>
-                <span style="font-weight: 600;">Recomendaciones NPK</span>
-            </div>
-            <div style="display: flex; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 12px 20px; border-radius: 50px;">
-                <span style="font-size: 1.2em; margin-right: 8px;">🔥</span>
-                <span style="font-weight: 600;">Mapas de Calor</span>
-            </div>
+<style>
+.hero-simple {
+    background: linear-gradient(rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.95)),
+                url('https://images.unsplash.com/photo-1597981309443-6e2d2a4d9c3f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80');
+    background-size: cover;
+    background-position: center 40%;
+    padding: 3em 2em;
+    border-radius: 24px;
+    margin-bottom: 2em;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    text-align: center;
+}
+.hero-title-simple {
+    color: #ffffff;
+    font-size: 2.8em;
+    font-weight: 900;
+    margin-bottom: 0.3em;
+    background: linear-gradient(135deg, #ffffff 0%, #93c5fd 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div class="hero-simple">
+    <h1 class="hero-title-simple">🌴 ANALIZADOR MULTI-CULTIVO INTELIGENTE</h1>
+    <p style="color: #cbd5e1; font-size: 1.2em; margin-bottom: 1.5em;">
+        Sistema de monitoreo satelital avanzado para cultivos tropicales
+    </p>
+    
+    <div style="display: inline-flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
+        <div style="background: rgba(255, 255, 255, 0.1); padding: 10px 18px; border-radius: 50px; display: inline-flex; align-items: center;">
+            <span style="font-size: 1.1em; margin-right: 6px;">🛰️</span>
+            <span style="font-weight: 600;">Satelital</span>
+        </div>
+        <div style="background: rgba(255, 255, 255, 0.1); padding: 10px 18px; border-radius: 50px; display: inline-flex; align-items: center;">
+            <span style="font-size: 1.1em; margin-right: 6px;">📊</span>
+            <span style="font-weight: 600;">NPK</span>
+        </div>
+        <div style="background: rgba(255, 255, 255, 0.1); padding: 10px 18px; border-radius: 50px; display: inline-flex; align-items: center;">
+            <span style="font-size: 1.1em; margin-right: 6px;">🔥</span>
+            <span style="font-weight: 600;">Mapas Calor</span>
         </div>
     </div>
 </div>
