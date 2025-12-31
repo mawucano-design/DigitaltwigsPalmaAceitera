@@ -1658,11 +1658,11 @@ def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
             alpha=0.3
         )
         
-        # Dibujar polígonos de las zonas con borde sutil
+        # Dibujar polígonos de las zonas con borde sutil - CORREGIDO: usar tupla RGBA
         gdf_plot.plot(
             ax=ax, 
             color='none', 
-            edgecolor='rgba(255, 255, 255, 0.4)',  # Blanco semi-transparente
+            edgecolor=(1, 1, 1, 0.4),  # CORRECCIÓN: tupla RGBA en lugar de string
             linewidth=0.8, 
             alpha=0.6
         )
