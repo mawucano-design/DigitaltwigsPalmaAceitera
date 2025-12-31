@@ -968,28 +968,46 @@ def calcular_estadisticas_pendiente_simple(pendiente_grid):
     return stats
 
 def generar_dem_sintetico(gdf, resolucion=10.0):
+    """
+    Genera un DEM sintético determinístico basado en las coordenadas de la parcela.
+    Mismo input → mismo output siempre.
+    """
     gdf = validar_y_corregir_crs(gdf)
     bounds = gdf.total_bounds
     minx, miny, maxx, maxy = bounds
+    
+    # Crear una semilla determinística basada en las coordenadas de la parcela
+    centroid = gdf.geometry.unary_union.centroid
+    # Usamos las coordenadas del centroide para crear una semilla única
+    seed_value = int(centroid.x * 10000 + centroid.y * 10000) % (2**32)
+    
+    # Inicializar el generador aleatorio con la semilla
+    rng = np.random.RandomState(seed_value)
+    
     num_cells = 50
     x = np.linspace(minx, maxx, num_cells)
     y = np.linspace(miny, maxy, num_cells)
     X, Y = np.meshgrid(x, y)
-    elevacion_base = np.random.uniform(100, 300)
-    slope_x = np.random.uniform(-0.001, 0.001)
-    slope_y = np.random.uniform(-0.001, 0.001)
+    
+    # Valores fijos basados en la semilla
+    elevacion_base = rng.uniform(100, 300)
+    slope_x = rng.uniform(-0.001, 0.001)
+    slope_y = rng.uniform(-0.001, 0.001)
     relief = np.zeros_like(X)
-    n_hills = np.random.randint(2, 5)
+    
+    n_hills = rng.randint(2, 5)
     for _ in range(n_hills):
-        hill_center_x = np.random.uniform(minx, maxx)
-        hill_center_y = np.random.uniform(miny, maxy)
-        hill_radius = np.random.uniform(0.001, 0.005)
-        hill_height = np.random.uniform(10, 50)
+        hill_center_x = rng.uniform(minx, maxx)
+        hill_center_y = rng.uniform(miny, maxy)
+        hill_radius = rng.uniform(0.001, 0.005)
+        hill_height = rng.uniform(10, 50)
         dist = np.sqrt((X - hill_center_x)**2 + (Y - hill_center_y)**2)
         relief += hill_height * np.exp(-(dist**2) / (2 * hill_radius**2))
-    noise = np.random.randn(*X.shape) * 2
+    
+    noise = rng.randn(*X.shape) * 2
     Z = elevacion_base + slope_x * (X - minx) + slope_y * (Y - miny) + relief + noise
     Z = np.maximum(Z, 50)
+    
     return X, Y, Z, bounds
 
 def calcular_pendiente_simple(X, Y, Z, resolucion=10.0):
