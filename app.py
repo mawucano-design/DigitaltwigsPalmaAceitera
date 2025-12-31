@@ -53,7 +53,7 @@ st.markdown("""
 [data-testid="stSidebar"] .stText,
 [data-testid="stSidebar"] .stTitle,
 [data-testid="stSidebar"] .stSubheader {
-    color: #ffffff !important;
+    color: #000000 !important;
     text-shadow: none !important;
 }
 
@@ -66,7 +66,7 @@ st.markdown("""
     padding: 14px;
     background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
     border-radius: 16px;
-    color: #ffffff !important;
+    color: #000000 !important;
     box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.2);
     letter-spacing: 0.5px;
@@ -88,7 +88,7 @@ st.markdown("""
 [data-testid="stSidebar"] .stSelectbox div,
 [data-testid="stSidebar"] .stDateInput div,
 [data-testid="stSidebar"] .stSlider label {
-    color: #ffffff !important;
+    color: #000000 !important;
     font-weight: 600;
     font-size: 0.95em;
 }
@@ -96,18 +96,18 @@ st.markdown("""
 [data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] {
     background-color: rgba(255, 255, 255, 0.1) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    color: #ffffff !important;
+    color: #000000 !important;
     border-radius: 8px;
 }
 
 [data-testid="stSidebar"] .stSlider [data-baseweb="slider"] {
-    color: #ffffff !important;
+    color: #000000 !important;
 }
 
 [data-testid="stSidebar"] .stDateInput [data-baseweb="input"] {
     background-color: rgba(255, 255, 255, 0.1) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    color: #ffffff !important;
+    color: #000000 !important;
     border-radius: 8px;
 }
 
