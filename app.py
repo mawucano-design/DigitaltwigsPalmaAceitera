@@ -28,24 +28,24 @@ import requests
 import contextily as ctx
 warnings.filterwarnings('ignore')
 
-# === ESTILOS PERSONALIZADOS CON ALTO CONTRASTE ===
-# ========================================
-# ✨ ESTILOS MODERNOS CON ALTO CONTRASTE (DARK MODE + LIGHT TABS)
-# ========================================
-# === ESTILOS PERSONALIZADOS CON ALTO CONTRASTE - VERSIÓN MEJORADA ===
+
+# === ESTILOS PERSONALIZADOS - VERSIÓN PREMIUM MODERNA ===
 st.markdown("""
 <style>
-/* === FONDO GENERAL OSCURO === */
+/* === FONDO GENERAL OSCURO ELEGANTE === */
 .stApp {
-    background-color: #0e1117;
-    color: #e0e0e0;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+    color: #ffffff !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* === SIDEBAR: FONDO CLARO → TEXTO NEGRO === */
+/* === SIDEBAR: FONDO OSCURO ELEGANTE === */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #e8f5e9 0%, #f1f8e9 100%) !important;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 5px 0 25px rgba(0, 0, 0, 0.5);
 }
+
 [data-testid="stSidebar"] *,
 [data-testid="stSidebar"] .stMarkdown,
 [data-testid="stSidebar"] p,
@@ -53,182 +53,385 @@ st.markdown("""
 [data-testid="stSidebar"] .stText,
 [data-testid="stSidebar"] .stTitle,
 [data-testid="stSidebar"] .stSubheader {
-    color: #000000 !important;  /* NEGRO */
+    color: #ffffff !important;
     text-shadow: none !important;
 }
 
-/* Título del sidebar con fondo sutil */
+/* Título del sidebar elegante */
 .sidebar-title {
-    font-size: 1.5em;
-    font-weight: bold;
+    font-size: 1.4em;
+    font-weight: 800;
     margin: 1.5em 0 1em 0;
     text-align: center;
-    padding: 12px;
-    background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
-    border-radius: 12px;
-    color: #ffffff !important;  /* Blanco solo para el título del banner */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 14px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    border-radius: 16px;
+    color: #ffffff !important;
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    letter-spacing: 0.5px;
 }
 
-/* Inputs y selects en sidebar → texto negro con fondo claro */
+/* Widgets del sidebar con estilo glassmorphism */
+[data-testid="stSidebar"] .stSelectbox,
+[data-testid="stSidebar"] .stDateInput,
+[data-testid="stSidebar"] .stSlider {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 8px 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Inputs y selects */
 [data-testid="stSidebar"] .stSelectbox div,
 [data-testid="stSidebar"] .stDateInput div,
 [data-testid="stSidebar"] .stSlider label {
-    color: #000000 !important;
-    font-weight: 600;
-}
-
-/* Botones del sidebar → colores vibrantes */
-.stButton > button {
-    background: linear-gradient(120deg, #2e7d32, #1b5e20);
-    color: white !important;
-    border: none;
-    padding: 0.6em 1.2em;
-    border-radius: 8px;
-    font-weight: bold;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-.stButton > button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(46, 125, 50, 0.6);
-    background: linear-gradient(120deg, #388e3c, #2e7d32);
-}
-
-/* === TÍTULO PRINCIPAL === */
-h1, h2, h3, h4 {
     color: #ffffff !important;
-    font-weight: 700 !important;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-/* === PESTAÑAS (tabs): fondo blanco → texto negro === */
-.stTabs [data-baseweb="tab-list"] {
-    background-color: white !important;
-    padding: 8px 16px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    margin-top: 1em;
-}
-.stTabs [data-baseweb="tab"] {
-    color: #000000 !important;  /* NEGRO */
     font-weight: 600;
-    padding: 8px 20px;
-    border-radius: 6px;
-    margin-right: 6px;
-    background: #f8f9fa;
-    transition: all 0.3s ease;
-}
-.stTabs [data-baseweb="tab"]:hover {
-    color: #1b5e20 !important;  /* Verde oscuro en hover */
-    background-color: #e8f5e9 !important;
-    transform: translateY(-2px);
-}
-.stTabs [aria-selected="true"] {
-    background-color: #ffffff !important;
-    color: #2e7d32 !important;  /* Verde principal */
-    font-weight: 700;
-    border-bottom: 3px solid #4caf50;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    font-size: 0.95em;
 }
 
-/* Asegurar que todo el texto en tabs sea oscuro */
-.stTabs [data-baseweb="tab"] div,
-.stTabs [data-baseweb="tab"] span,
-.stTabs [aria-selected="true"] div,
-.stTabs [aria-selected="true"] span {
-    color: inherit !important;
-}
-
-/* === MÉTRICAS (tarjetas): fondo oscuro, texto blanco === */
-div[data-testid="metric-container"] {
-    background: #1a1f25;
-    border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(100, 149, 237, 0.3);
-}
-div[data-testid="metric-container"] label,
-div[data-testid="metric-container"] div {
-    color: #ffffff !important;
-}
-
-/* === GRÁFICOS: fondo oscuro, ejes y etiquetas blancas === */
-.stPlotlyChart, .stPyplot {
-    background: #161c25 !important;
-    border-radius: 12px;
-    padding: 12px;
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
-}
-
-/* === EXPANDERS === */
-.streamlit-expanderHeader {
-    color: #ffffff !important;
-    background: #1a1f25 !important;
-    border-radius: 10px !important;
-    font-weight: 600;
-}
-
-/* === TEXTOS GENERALES === */
-p, div, span, label {
-    color: #e0e0e0 !important;
-}
-
-/* === ESTILOS ESPECÍFICOS PARA WIDGETS DEL SIDEBAR === */
 [data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] {
-    background-color: #ffffff;
-    border: 1px solid #c8e6c9;
-    color: #000000 !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    border-radius: 8px;
 }
 
 [data-testid="stSidebar"] .stSlider [data-baseweb="slider"] {
-    color: #000000 !important;
+    color: #ffffff !important;
 }
 
 [data-testid="stSidebar"] .stDateInput [data-baseweb="input"] {
-    background-color: #ffffff;
-    border: 1px solid #c8e6c9;
-    color: #000000 !important;
-}
-
-/* Info boxes en sidebar */
-[data-testid="stSidebar"] .stAlert {
-    background-color: rgba(200, 230, 201, 0.8);
-    border: 1px solid #81c784;
-    color: #1b5e20 !important;
-}
-
-/* Imágenes en sidebar con borde sutil */
-[data-testid="stSidebar"] img {
-    border: 2px solid #c8e6c9;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Subtítulos en sidebar */
-[data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4 {
-    color: #1b5e20 !important;
-    border-bottom: 2px solid #a5d6a7;
-    padding-bottom: 5px;
-    margin-top: 1.5em;
+/* Botones premium */
+.stButton > button {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+    color: white !important;
+    border: none !important;
+    padding: 0.8em 1.5em !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    font-size: 1em !important;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4) !important;
+    transition: all 0.3s ease !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+.stButton > button:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.6) !important;
+    background: linear-gradient(135deg, #4f8df8 0%, #2d5fe8 100%) !important;
+}
+
+/* === HERO BANNER PRINCIPAL CON IMAGEN === */
+.hero-banner {
+    background: linear-gradient(rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.95)),
+                url('https://images.unsplash.com/photo-1597981309443-6e2d2a4d9c3f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80') !important;
+    background-size: cover !important;
+    background-position: center 40% !important;
+    padding: 3.5em 2em !important;
+    border-radius: 24px !important;
+    margin-bottom: 2.5em !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(59, 130, 246, 0.2) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.hero-banner::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: linear-gradient(45deg, rgba(59, 130, 246, 0.1), rgba(29, 78, 216, 0.05)) !important;
+    z-index: 1 !important;
+}
+
+.hero-content {
+    position: relative !important;
+    z-index: 2 !important;
+    text-align: center !important;
+}
+
+.hero-title {
+    color: #ffffff !important;
+    font-size: 3.2em !important;
+    font-weight: 900 !important;
+    margin-bottom: 0.3em !important;
+    text-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
+    letter-spacing: -0.5px !important;
+    background: linear-gradient(135deg, #ffffff 0%, #93c5fd 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+}
+
+.hero-subtitle {
+    color: #cbd5e1 !important;
+    font-size: 1.3em !important;
+    font-weight: 400 !important;
+    max-width: 800px !important;
+    margin: 0 auto !important;
+    line-height: 1.6 !important;
+}
+
+/* === PESTAÑAS MODERNAS === */
+.stTabs [data-baseweb="tab-list"] {
+    background: rgba(255, 255, 255, 0.05) !important;
+    backdrop-filter: blur(10px) !important;
+    padding: 8px 16px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    margin-top: 1em !important;
+    gap: 8px !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+    color: #94a3b8 !important;
+    font-weight: 600 !important;
+    padding: 12px 24px !important;
+    border-radius: 12px !important;
+    background: transparent !important;
+    transition: all 0.3s ease !important;
+    border: 1px solid transparent !important;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    color: #ffffff !important;
+    background: rgba(59, 130, 246, 0.2) !important;
+    border-color: rgba(59, 130, 246, 0.3) !important;
+    transform: translateY(-2px) !important;
+}
+
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border: none !important;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4) !important;
+}
+
+/* === MÉTRICAS PREMIUM === */
+div[data-testid="metric-container"] {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9)) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 20px !important;
+    padding: 24px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(59, 130, 246, 0.2) !important;
+    transition: all 0.3s ease !important;
+}
+
+div[data-testid="metric-container"]:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 15px 40px rgba(59, 130, 246, 0.2) !important;
+    border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+div[data-testid="metric-container"] label,
+div[data-testid="metric-container"] div,
+div[data-testid="metric-container"] [data-testid="stMetricValue"],
+div[data-testid="metric-container"] [data-testid="stMetricLabel"] {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+div[data-testid="metric-container"] [data-testid="stMetricValue"] {
+    font-size: 2.5em !important;
+    font-weight: 800 !important;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+}
+
+/* === GRÁFICOS CON ESTILO OSCURO === */
+.stPlotlyChart, .stPyplot {
+    background: rgba(15, 23, 42, 0.8) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 20px !important;
+    padding: 20px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(59, 130, 246, 0.2) !important;
+}
+
+/* === EXPANDERS ELEGANTES === */
+.streamlit-expanderHeader {
+    color: #ffffff !important;
+    background: rgba(30, 41, 59, 0.8) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 16px !important;
+    font-weight: 700 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    padding: 16px 20px !important;
+    margin-bottom: 10px !important;
+}
+
+.streamlit-expanderContent {
+    background: rgba(15, 23, 42, 0.6) !important;
+    border-radius: 0 0 16px 16px !important;
+    padding: 20px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-top: none !important;
+}
+
+/* === TEXTOS GENERALES === */
+h1, h2, h3, h4, h5, h6 {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    margin-top: 1.5em !important;
+}
+
+p, div, span, label, li {
+    color: #cbd5e1 !important;
+    line-height: 1.7 !important;
+}
+
+/* === DATA FRAMES TABLAS ELEGANTES === */
+.dataframe {
+    background: rgba(15, 23, 42, 0.8) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+}
+
+.dataframe th {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    padding: 16px !important;
+}
+
+.dataframe td {
+    color: #cbd5e1 !important;
+    padding: 14px 16px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* === ALERTS Y MENSAJES === */
+.stAlert {
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+/* === SCROLLBAR PERSONALIZADA === */
+::-webkit-scrollbar {
+    width: 10px !important;
+    height: 10px !important;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.8) !important;
+    border-radius: 10px !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+    border-radius: 10px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #4f8df8 0%, #2d5fe8 100%) !important;
+}
+
+/* === IMÁGENES DEL SIDEBAR === */
+[data-testid="stSidebar"] img {
+    border-radius: 16px !important;
+    border: 2px solid rgba(59, 130, 246, 0.3) !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+    transition: all 0.3s ease !important;
+}
+
+[data-testid="stSidebar"] img:hover {
+    transform: scale(1.02) !important;
+    box-shadow: 0 12px 35px rgba(59, 130, 246, 0.4) !important;
+    border-color: rgba(59, 130, 246, 0.6) !important;
+}
+
+/* === TARJETAS DE CULTIVOS === */
+.cultivo-card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95)) !important;
+    border-radius: 20px !important;
+    padding: 25px !important;
+    border: 1px solid rgba(59, 130, 246, 0.2) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+    transition: all 0.3s ease !important;
+    height: 100% !important;
+}
+
+.cultivo-card:hover {
+    transform: translateY(-8px) !important;
+    box-shadow: 0 20px 40px rgba(59, 130, 246, 0.2) !important;
+    border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+/* === TABLERO DE CONTROL === */
+.dashboard-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+    gap: 25px !important;
+    margin: 30px 0 !important;
+}
+
+.dashboard-card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95)) !important;
+    border-radius: 20px !important;
+    padding: 25px !important;
+    border: 1px solid rgba(59, 130, 246, 0.2) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+    transition: all 0.3s ease !important;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 20px 40px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* === STATS BADGES === */
+.stats-badge {
+    display: inline-block !important;
+    padding: 6px 14px !important;
+    border-radius: 50px !important;
+    font-size: 0.85em !important;
+    font-weight: 700 !important;
+    margin: 2px !important;
+}
+
+.badge-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: white !important;
+}
+
+.badge-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+    color: white !important;
+}
+
+.badge-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+    color: white !important;
+}
+
+.badge-info {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+    color: white !important;
 }
 </style>
 """, unsafe_allow_html=True)
-# CONFIGURACIÓN DE PÁGINA - DEBE SER LO PRIMERO
-st.set_page_config(
-    page_title="🌱 Analizador Multi-Cultivo Satellital",
-    layout="wide",
-    page_icon="🛰️"
-)
 
-# Título principal con banner
-st.markdown("""
-<div style="background: linear-gradient(135deg, #1a2a6c 0%, #2a4d69 100%);
-padding: 1.5em; border-radius: 16px; margin-bottom: 1.5em; box-shadow: 0 4px 20px rgba(26, 42, 108, 0.3);">
-<h1 style="color: white; text-align: center; margin: 0; font-size: 2.4em;">
-🛰️ ANALIZADOR MULTI-CULTIVO TROPICAL - PALMA, CACAO, BANANO, CAFÉ
-</h1>
-</div>
-""", unsafe_allow_html=True)
 
 # ===== CONFIGURACIÓN DE SATÉLITES DISPONIBLES =====
 SATELITES_DISPONIBLES = {
