@@ -186,7 +186,7 @@ st.markdown("""
     line-height: 1.6 !important;
 }
 
-/* === PESTAÑAS MODERNAS === */
+/* === PESTAÑAS PRINCIPALES (fuera del sidebar) - SIN CAMBIOS === */
 .stTabs [data-baseweb="tab-list"] {
     background: rgba(255, 255, 255, 0.05) !important;
     backdrop-filter: blur(10px) !important;
@@ -220,6 +220,38 @@ st.markdown("""
     font-weight: 700 !important;
     border: none !important;
     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4) !important;
+}
+
+/* === PESTAÑAS DEL SIDEBAR: FONDO BLANCO + TEXTO NEGRO (TU REQUERIMIENTO) === */
+[data-testid="stSidebar"] .stTabs [data-baseweb="tab-list"] {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 8px !important;
+    border-radius: 12px !important;
+    gap: 6px !important;
+}
+
+[data-testid="stSidebar"] .stTabs [data-baseweb="tab"] {
+    color: #000000 !important;
+    background: transparent !important;
+    border-radius: 8px !important;
+    padding: 8px 16px !important;
+    font-weight: 600 !important;
+    border: 1px solid transparent !important;
+}
+
+[data-testid="stSidebar"] .stTabs [data-baseweb="tab"]:hover {
+    background: #f1f5f9 !important;
+    color: #000000 !important;
+    border-color: #cbd5e1 !important;
+}
+
+/* Pestaña activa en el sidebar: blanco con texto negro (ajustado a tu preferencia) */
+[data-testid="stSidebar"] .stTabs [aria-selected="true"] {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-weight: 700 !important;
+    border: 1px solid #3b82f6 !important;
 }
 
 /* === MÉTRICAS PREMIUM === */
