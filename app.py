@@ -88,7 +88,7 @@ st.markdown("""
 [data-testid="stSidebar"] .stSelectbox div,
 [data-testid="stSidebar"] .stDateInput div,
 [data-testid="stSidebar"] .stSlider label {
-    color: #ffffff !important;
+    color: #000000 !important;
     font-weight: 600;
     font-size: 0.95em;
 }
@@ -96,12 +96,12 @@ st.markdown("""
 [data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] {
     background-color: rgba(255, 255, 255, 0.1) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    color: #000000 !important;
+    color: #ffffff !important;
     border-radius: 8px;
 }
 
 [data-testid="stSidebar"] .stSlider [data-baseweb="slider"] {
-    color: #000000 !important;
+    color: #ffffff !important;
 }
 
 [data-testid="stSidebar"] .stDateInput [data-baseweb="input"] {
