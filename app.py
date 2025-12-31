@@ -32,6 +32,7 @@ warnings.filterwarnings('ignore')
 # ========================================
 # ✨ ESTILOS MODERNOS CON ALTO CONTRASTE (DARK MODE + LIGHT TABS)
 # ========================================
+# === ESTILOS PERSONALIZADOS CON ALTO CONTRASTE - VERSIÓN MEJORADA ===
 st.markdown("""
 <style>
 /* === FONDO GENERAL OSCURO === */
@@ -40,10 +41,10 @@ st.markdown("""
     color: #e0e0e0;
 }
 
-/* === SIDEBAR: FONDO OSCURO → TEXTO BLANCO === */
+/* === SIDEBAR: FONDO CLARO → TEXTO NEGRO === */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0a3d2e 0%, #0d513d 100%) !important;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(180deg, #e8f5e9 0%, #f1f8e9 100%) !important;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
 }
 [data-testid="stSidebar"] *,
 [data-testid="stSidebar"] .stMarkdown,
@@ -52,44 +53,45 @@ st.markdown("""
 [data-testid="stSidebar"] .stText,
 [data-testid="stSidebar"] .stTitle,
 [data-testid="stSidebar"] .stSubheader {
-    color: #ffffff !important;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+    color: #000000 !important;  /* NEGRO */
+    text-shadow: none !important;
 }
 
-/* Título del sidebar */
+/* Título del sidebar con fondo sutil */
 .sidebar-title {
     font-size: 1.5em;
     font-weight: bold;
     margin: 1.5em 0 1em 0;
     text-align: center;
     padding: 12px;
-    background: rgba(168, 230, 207, 0.2);
+    background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
     border-radius: 12px;
-    color: #ffffff !important;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    color: #ffffff !important;  /* Blanco solo para el título del banner */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Inputs y selects en sidebar → blanco suave */
+/* Inputs y selects en sidebar → texto negro con fondo claro */
 [data-testid="stSidebar"] .stSelectbox div,
 [data-testid="stSidebar"] .stDateInput div,
 [data-testid="stSidebar"] .stSlider label {
-    color: #e0f2e9 !important;
+    color: #000000 !important;
+    font-weight: 600;
 }
 
-/* Botones del sidebar → blanco sobre fondo oscuro */
+/* Botones del sidebar → colores vibrantes */
 .stButton > button {
-    background: linear-gradient(120deg, #1e7a5d, #0d513d);
+    background: linear-gradient(120deg, #2e7d32, #1b5e20);
     color: white !important;
     border: none;
     padding: 0.6em 1.2em;
     border-radius: 8px;
     font-weight: bold;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 .stButton > button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(26, 118, 93, 0.6);
-    background: linear-gradient(120deg, #2a9d8f, #1e7a5d);
+    box-shadow: 0 4px 12px rgba(46, 125, 50, 0.6);
+    background: linear-gradient(120deg, #388e3c, #2e7d32);
 }
 
 /* === TÍTULO PRINCIPAL === */
@@ -99,7 +101,7 @@ h1, h2, h3, h4 {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* === PESTAÑAS (tabs): fondo blanco → texto NEGRO OSCURO === */
+/* === PESTAÑAS (tabs): fondo blanco → texto negro === */
 .stTabs [data-baseweb="tab-list"] {
     background-color: white !important;
     padding: 8px 16px;
@@ -108,7 +110,7 @@ h1, h2, h3, h4 {
     margin-top: 1em;
 }
 .stTabs [data-baseweb="tab"] {
-    color: #000000 !important;  /* NEGRO OSCURO */
+    color: #000000 !important;  /* NEGRO */
     font-weight: 600;
     padding: 8px 20px;
     border-radius: 6px;
@@ -117,24 +119,24 @@ h1, h2, h3, h4 {
     transition: all 0.3s ease;
 }
 .stTabs [data-baseweb="tab"]:hover {
-    color: #000000 !important;  /* NEGRO OSCURO también en hover */
-    background-color: #e9ecef !important;
+    color: #1b5e20 !important;  /* Verde oscuro en hover */
+    background-color: #e8f5e9 !important;
     transform: translateY(-2px);
 }
 .stTabs [aria-selected="true"] {
     background-color: #ffffff !important;
-    color: #000000 !important;  /* NEGRO OSCURO para pestaña activa */
+    color: #2e7d32 !important;  /* Verde principal */
     font-weight: 700;
-    border-bottom: 3px solid #2a9d8f;
+    border-bottom: 3px solid #4caf50;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
-/* Asegurar que todo el texto en tabs sea negro oscuro */
+/* Asegurar que todo el texto en tabs sea oscuro */
 .stTabs [data-baseweb="tab"] div,
 .stTabs [data-baseweb="tab"] span,
 .stTabs [aria-selected="true"] div,
 .stTabs [aria-selected="true"] span {
-    color: #000000 !important;
+    color: inherit !important;
 }
 
 /* === MÉTRICAS (tarjetas): fondo oscuro, texto blanco === */
@@ -170,9 +172,47 @@ div[data-testid="metric-container"] div {
 p, div, span, label {
     color: #e0e0e0 !important;
 }
+
+/* === ESTILOS ESPECÍFICOS PARA WIDGETS DEL SIDEBAR === */
+[data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] {
+    background-color: #ffffff;
+    border: 1px solid #c8e6c9;
+    color: #000000 !important;
+}
+
+[data-testid="stSidebar"] .stSlider [data-baseweb="slider"] {
+    color: #000000 !important;
+}
+
+[data-testid="stSidebar"] .stDateInput [data-baseweb="input"] {
+    background-color: #ffffff;
+    border: 1px solid #c8e6c9;
+    color: #000000 !important;
+}
+
+/* Info boxes en sidebar */
+[data-testid="stSidebar"] .stAlert {
+    background-color: rgba(200, 230, 201, 0.8);
+    border: 1px solid #81c784;
+    color: #1b5e20 !important;
+}
+
+/* Imágenes en sidebar con borde sutil */
+[data-testid="stSidebar"] img {
+    border: 2px solid #c8e6c9;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Subtítulos en sidebar */
+[data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4 {
+    color: #1b5e20 !important;
+    border-bottom: 2px solid #a5d6a7;
+    padding-bottom: 5px;
+    margin-top: 1.5em;
+}
 </style>
 """, unsafe_allow_html=True)
-
 # CONFIGURACIÓN DE PÁGINA - DEBE SER LO PRIMERO
 st.set_page_config(
     page_title="🌱 Analizador Multi-Cultivo Satellital",
