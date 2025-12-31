@@ -100,13 +100,13 @@ st.markdown("""
 }
 
 [data-testid="stSidebar"] .stSlider [data-baseweb="slider"] {
-    color: #ffffff !important;
+    color: #000000 !important;
 }
 
 [data-testid="stSidebar"] .stDateInput [data-baseweb="input"] {
     background-color: rgba(255, 255, 255, 0.1) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    color: #ffffff !important;
+    color: #000000 !important;
     border-radius: 8px;
 }
 
@@ -130,6 +130,16 @@ st.markdown("""
     box-shadow: 0 8px 25px rgba(59, 130, 246, 0.6) !important;
     background: linear-gradient(135deg, #4f8df8 0%, #2d5fe8 100%) !important;
 }
+
+# ===== HERO BANNER =====
+st.markdown("""
+<div class="hero-banner">
+    <div class="hero-content">
+        <h1 class="hero-title">🌱 Analizador Multi-Cultivo Satellital</h1>
+        <p class="hero-subtitle">Potenciado con datos de NASA POWER y tecnología GEE para una agricultura tropical de precisión</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 /* === HERO BANNER PRINCIPAL CON IMAGEN === */
 .hero-banner {
