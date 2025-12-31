@@ -88,7 +88,7 @@ st.markdown("""
 [data-testid="stSidebar"] .stSelectbox div,
 [data-testid="stSidebar"] .stDateInput div,
 [data-testid="stSidebar"] .stSlider label {
-    color: #000000 !important;
+    color: #ffffff !important;
     font-weight: 600;
     font-size: 0.95em;
 }
