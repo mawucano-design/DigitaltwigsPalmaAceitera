@@ -1658,13 +1658,14 @@ def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
             alpha=0.3
         )
         
-        # Dibujar polígonos de las zonas con borde sutil - CORREGIDO: usar tupla RGBA
+        # Dibujar polígonos de las zonas con borde sutil - SOLUCIÓN CORRECTA
+        # Separar edgecolor y alpha
         gdf_plot.plot(
             ax=ax, 
             color='none', 
-            edgecolor=(1, 1, 1, 0.4),  # CORRECCIÓN: tupla RGBA en lugar de string
+            edgecolor='white',  # Color básico
             linewidth=0.8, 
-            alpha=0.6
+            alpha=0.4  # Transparencia aplicada al borde también
         )
         
         # Etiquetas modernas para zonas
@@ -1674,6 +1675,10 @@ def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
             
             # Color de texto basado en valor
             text_color = 'white' if valor < 0.5 else 'black'
+            
+            # CORRECCIÓN: Usar tupla RGBA válida para facecolor del bbox
+            face_alpha = 0.7 if valor > 0.5 else 0.3
+            bbox_facecolor = (1, 1, 1, face_alpha)  # Tupla RGBA
             
             ax.annotate(
                 f"Z{row['id_zona']}\n{valor:.2f}", 
@@ -1687,7 +1692,7 @@ def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
                 va='center',
                 bbox=dict(
                     boxstyle="round,pad=0.3", 
-                    facecolor=f'rgba(255, 255, 255, {0.7 if valor > 0.5 else 0.3})',
+                    facecolor=bbox_facecolor,
                     edgecolor='none',
                     alpha=0.9
                 )
@@ -1801,7 +1806,7 @@ def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
         import traceback
         st.error(f"Detalle: {traceback.format_exc()}")
         return None
-
+        
 # ===== FUNCIÓN PRINCIPAL DE ANÁLISIS (CORREGIDA) =====
 def ejecutar_analisis(gdf, nutriente, analisis_tipo, n_divisiones, cultivo,
                       satelite=None, indice=None, fecha_inicio=None,
