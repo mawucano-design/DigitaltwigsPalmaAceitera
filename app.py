@@ -135,7 +135,7 @@ st.markdown("""
 st.markdown("""
 <div class="hero-banner">
     <div class="hero-content">
-        <h1 class="hero-title">🌱 Analizador Multi-Cultivo Satellital</h1>
+        <h1 class="hero-title"> Analizador Multi-Cultivo Satellital</h1>
         <p class="hero-subtitle">Potenciado con datos de NASA POWER y tecnología GEE para una agricultura tropical de precisión</p>
     </div>
 </div>
