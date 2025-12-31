@@ -463,6 +463,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+
 # ===== TABLERO DE CONTROL MODERNO =====
 st.markdown("## 📊 TABLERO DE CONTROL INTELIGENTE")
 
