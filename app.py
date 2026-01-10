@@ -2656,63 +2656,63 @@ if uploaded_file:
                                     ))
                                     st.markdown(f"**Interpretación agronómica:** {interpretacion}")
 
-                                # === PESTAÑA: VIENTO ===
-                                with tab_viento:
-                                    serie_viento = df_power.set_index('fecha')['viento_2m']
-                                    prom_viento = serie_viento.mean()
-                                    max_viento = serie_viento.max()
-                                    min_viento = serie_viento.min()
-                                    if prom_viento < 2.0:
-                                        interpretacion = "🍃 **Viento suave**: Bajo riesgo de estrés mecánico o deshidratación.")
-                                    elif prom_viento < 4.0:
-                                        interpretacion = "🌬️ **Viento moderado**: Aceptable; monitorear en etapas sensibles (floración, fruto joven)."
-                                    else:
-                                        interpretacion = "💨 **Viento fuerte**: Alto riesgo de daño mecánico, aumento de evapotranspiración y posible caída de frutos."
+                               # === PESTAÑA: VIENTO ===
+with tab_viento:
+    serie_viento = df_power.set_index('fecha')['viento_2m']
+    prom_viento = serie_viento.mean()
+    max_viento = serie_viento.max()
+    min_viento = serie_viento.min()
+    if prom_viento < 2.0:
+        interpretacion = "🍃 **Viento suave**: Bajo riesgo de estrés mecánico o deshidratación."
+    elif prom_viento < 4.0:
+        interpretacion = "🌬️ **Viento moderado**: Aceptable; monitorear en etapas sensibles (floración, fruto joven)."
+    else:
+        interpretacion = "💨 **Viento fuerte**: Alto riesgo de daño mecánico, aumento de evapotranspiración y posible caída de frutos."
 
-                                    col_w1, col_w2, col_w3 = st.columns(3)
-                                    with col_w1:
-                                        st.metric("Promedio", f"{prom_viento:.2f} m/s")
-                                    with col_w2:
-                                        st.metric("Máximo", f"{max_viento:.2f}")
-                                    with col_w3:
-                                        st.metric("Mínimo", f"{min_viento:.2f}")
+    col_w1, col_w2, col_w3 = st.columns(3)
+    with col_w1:
+        st.metric("Promedio", f"{prom_viento:.2f} m/s")
+    with col_w2:
+        st.metric("Máximo", f"{max_viento:.2f}")
+    with col_w3:
+        st.metric("Mínimo", f"{min_viento:.2f}")
 
-                                    st.pyplot(crear_grafico_personalizado(
-                                        serie_viento,
-                                        "Evolución Diaria de Velocidad del Viento",
-                                        "Viento a 2m (m/s)",
-                                        color_linea='#3498db'
-                                    ))
-                                    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
+    st.pyplot(crear_grafico_personalizado(
+        serie_viento,
+        "Evolución Diaria de Velocidad del Viento",
+        "Viento a 2m (m/s)",
+        color_linea='#3498db'
+    ))
+    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
 
-                                # === PESTAÑA: PRECIPITACIÓN ===
-                                with tab_precip:
-                                    serie_precip = df_power.set_index('fecha')['precipitacion']
-                                    prom_precip = serie_precip.mean()
-                                    total_precip = serie_precip.sum()
-                                    dias_lluvia = (serie_precip > 0.1).sum()
-                                    if prom_precip > 8:
-                                        interpretacion = "🌧️ **Precipitación alta**: Riesgo de encharcamiento y lixiviación de nutrientes. Asegurar drenaje."
-                                    elif prom_precip > 3:
-                                        interpretacion = "💧 **Precipitación adecuada**: Condiciones hídricas favorables para cultivos tropicales."
-                                    else:
-                                        interpretacion = "🏜️ **Precipitación baja**: Posible déficit hídrico; considerar riego suplementario."
+                             # === PESTAÑA: PRECIPITACIÓN ===
+with tab_precip:
+    serie_precip = df_power.set_index('fecha')['precipitacion']
+    prom_precip = serie_precip.mean()
+    total_precip = serie_precip.sum()
+    dias_lluvia = (serie_precip > 0.1).sum()
+    if prom_precip > 8:
+        interpretacion = "🌧️ **Precipitación alta**: Riesgo de encharcamiento y lixiviación de nutrientes. Asegurar drenaje."
+    elif prom_precip > 3:
+        interpretacion = "💧 **Precipitación adecuada**: Condiciones hídricas favorables para cultivos tropicales."
+    else:
+        interpretacion = "🏜️ **Precipitación baja**: Posible déficit hídrico; considerar riego suplementario."
 
-                                    col_p1, col_p2, col_p3 = st.columns(3)
-                                    with col_p1:
-                                        st.metric("Total", f"{total_precip:.1f} mm")
-                                    with col_p2:
-                                        st.metric("Promedio", f"{prom_precip:.1f} mm/día")
-                                    with col_p3:
-                                        st.metric("Días con lluvia", f"{dias_lluvia}")
+    col_p1, col_p2, col_p3 = st.columns(3)
+    with col_p1:
+        st.metric("Total", f"{total_precip:.1f} mm")
+    with col_p2:
+        st.metric("Promedio", f"{prom_precip:.1f} mm/día")
+    with col_p3:
+        st.metric("Días con lluvia", f"{dias_lluvia}")
 
-                                    st.pyplot(crear_grafico_barras_personalizado(
-                                        serie_precip,
-                                        "Precipitación Diaria",
-                                        "Precipitación (mm/día)",
-                                        color_barra='#2ecc71'
-                                    ))
-                                    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
+    st.pyplot(crear_grafico_barras_personalizado(
+        serie_precip,
+        "Precipitación Diaria",
+        "Precipitación (mm/día)",
+        color_barra='#2ecc71'
+    ))
+    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
 
                                 # === PESTAÑA: POTENCIAL DE COSECHA ===
                                 with tab_cosecha:
