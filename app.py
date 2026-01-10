@@ -774,19 +774,29 @@ def calcular_superficie(gdf):
     try:
         if gdf is None or len(gdf) == 0:
             return 0.0
+        
         gdf = validar_y_corregir_crs(gdf)
-        bounds = gdf.total_bounds
-        if bounds[0] < -180 or bounds[2] > 180 or bounds[1] < -90 or bounds[3] > 90:
-            st.warning("⚠️ Coordenadas fuera de rango para cálculo preciso de área")
-            area_grados2 = gdf.geometry.area.sum()
+        
+        # Calcular área total de todos los polígonos
+        if str(gdf.crs).upper() != 'EPSG:4326':
+            gdf_projected = gdf.to_crs('EPSG:3857')
+            area_m2 = gdf_projected.geometry.area.sum()
+        else:
+            # Para EPSG:4326, necesitamos proyectar para cálculo preciso
+            gdf_projected = gdf.to_crs('EPSG:3857')
+            area_m2 = gdf_projected.geometry.area.sum()
+        
+        return area_m2 / 10000  # Convertir m² a hectáreas
+        
+    except Exception as e:
+        st.warning(f"⚠️ Advertencia al calcular superficie: {str(e)}")
+        # Método alternativo aproximado
+        try:
+            bounds = gdf.total_bounds
+            area_grados2 = (bounds[2] - bounds[0]) * (bounds[3] - bounds[1])
+            # Aproximación para latitudes tropicales
             area_m2 = area_grados2 * 111000 * 111000
             return area_m2 / 10000
-        gdf_projected = gdf.to_crs('EPSG:3857')
-        area_m2 = gdf_projected.geometry.area.sum()
-        return area_m2 / 10000
-    except Exception as e:
-        try:
-            return gdf.geometry.area.sum() / 10000
         except:
             return 0.0
 
@@ -794,28 +804,66 @@ def dividir_parcela_en_zonas(gdf, n_zonas):
     if len(gdf) == 0:
         return gdf
     gdf = validar_y_corregir_crs(gdf)
-    parcela_principal = gdf.iloc[0].geometry
+    
+    # Si hay múltiples polígonos, los combinamos en uno solo
+    if len(gdf) > 1:
+        st.info(f"📋 KML contiene {len(gdf)} polígonos. Uniendo en una sola parcela...")
+        parcela_principal = gdf.geometry.unary_union
+        
+        # Asegurarse de que sea un polígono (puede ser MultiPolygon)
+        if parcela_principal.geom_type == 'MultiPolygon':
+            # Tomar el polígono más grande o crear convex hull
+            polygons = list(parcela_principal.geoms)
+            polygons.sort(key=lambda x: x.area, reverse=True)
+            parcela_principal = polygons[0]
+            st.info(f"Se seleccionó el polígono más grande de {len(polygons)} polígonos.")
+    else:
+        parcela_principal = gdf.iloc[0].geometry
+    
     bounds = parcela_principal.bounds
     minx, miny, maxx, maxy = bounds
+    
     sub_poligonos = []
     n_cols = math.ceil(math.sqrt(n_zonas))
     n_rows = math.ceil(n_zonas / n_cols)
+    
     width = (maxx - minx) / n_cols
     height = (maxy - miny) / n_rows
+    
     for i in range(n_rows):
         for j in range(n_cols):
             if len(sub_poligonos) >= n_zonas:
                 break
+            
             cell_minx = minx + (j * width)
             cell_maxx = minx + ((j + 1) * width)
             cell_miny = miny + (i * height)
             cell_maxy = miny + ((i + 1) * height)
-            cell_poly = Polygon([(cell_minx, cell_miny), (cell_maxx, cell_miny), (cell_maxx, cell_maxy), (cell_minx, cell_maxy)])
+            
+            cell_poly = Polygon([
+                (cell_minx, cell_miny),
+                (cell_maxx, cell_miny),
+                (cell_maxx, cell_maxy),
+                (cell_minx, cell_maxy)
+            ])
+            
             intersection = parcela_principal.intersection(cell_poly)
+            
             if not intersection.is_empty and intersection.area > 0:
-                sub_poligonos.append(intersection)
+                # Si la intersección es MultiPolygon, tomar la parte más grande
+                if intersection.geom_type == 'MultiPolygon':
+                    parts = list(intersection.geoms)
+                    parts.sort(key=lambda x: x.area, reverse=True)
+                    if parts:
+                        sub_poligonos.append(parts[0])
+                else:
+                    sub_poligonos.append(intersection)
+    
     if sub_poligonos:
-        nuevo_gdf = gpd.GeoDataFrame({'id_zona': range(1, len(sub_poligonos) + 1), 'geometry': sub_poligonos}, crs='EPSG:4326')
+        nuevo_gdf = gpd.GeoDataFrame(
+            {'id_zona': range(1, len(sub_poligonos) + 1), 'geometry': sub_poligonos},
+            crs='EPSG:4326'
+        )
         return nuevo_gdf
     else:
         return gdf
@@ -1092,8 +1140,7 @@ def calcular_indices_satelitales_gee(gdf, cultivo, datos_satelitales):
         base_humedad = params['HUMEDAD_OPTIMA'] * 0.8
         variabilidad_humedad = patron_espacial * (params['HUMEDAD_OPTIMA'] * 0.4)
         humedad_suelo = base_humedad + variabilidad_humedad + np.random.normal(0, 0.05)
-        humedad_suelo = max(0.1, min(0.8, humedad_suelo)
-)
+        humedad_suelo = max(0.1, min(0.8, humedad_suelo))
         ndvi_base = valor_base_satelital * 0.8
         ndvi_variacion = patron_espacial * (valor_base_satelital * 0.4)
         ndvi = ndvi_base + ndvi_variacion + np.random.normal(0, 0.06)
@@ -1426,7 +1473,7 @@ def generar_resumen_estadisticas(gdf_analizado, analisis_tipo, cultivo, df_power
             if df_power is not None:
                 estadisticas['Radiación Solar Promedio'] = f"{df_power['radiacion_solar'].mean():.1f} kWh/m²/día"
                 estadisticas['Velocidad Viento Promedio'] = f"{df_power['viento_2m'].mean():.2f} m/s"
-                estadisticas['Precipitación Promedio'] = f"{df_power['precipitacion'].mean():.2f} mm/día"  # ← NUEVO
+                estadisticas['Precipitación Promedio'] = f"{df_power['precipitacion'].mean():.2f} mm/día"
         elif analisis_tipo == "ANÁLISIS DE TEXTURA":
             if 'arena' in gdf_analizado.columns:
                 estadisticas['Arena Promedio'] = f"{gdf_analizado['arena'].mean():.1f}%"
@@ -1490,21 +1537,21 @@ def limpiar_texto_para_pdf(texto):
     if not isinstance(texto, str):
         texto = str(texto)
     reemplazos = {
-        '\u2022': '-',          # • → -
-        '\u2705': '[OK]',       # ✅
-        '\u26A0\uFE0F': '[!]',  # ⚠️
-        '\u274C': '[X]',        # ❌
-        '\u2013': '-',          # – → -
-        '\u2014': '--',         # — → --
-        '\u2018': "'",          # ‘
-        '\u2019': "'",          # ’
-        '\u201C': '"',          # "
-        '\u201D': '"',          # "
-        '\u2192': '->',         # →
-        '\u2190': '<-',         # ←
-        '\u2265': '>=',         # ≥
-        '\u2264': '<=',         # ≤
-        '\u00A0': ' ',          # non-breaking space → espacio normal
+        '\u2022': '-',
+        '\u2705': '[OK]',
+        '\u26A0\uFE0F': '[!]',
+        '\u274C': '[X]',
+        '\u2013': '-',
+        '\u2014': '--',
+        '\u2018': "'",
+        '\u2019': "'",
+        '\u201C': '"',
+        '\u201D': '"',
+        '\u2192': '->',
+        '\u2190': '<-',
+        '\u2265': '>=',
+        '\u2264': '<=',
+        '\u00A0': ' ',
     }
     for original, reemplazo in reemplazos.items():
         texto = texto.replace(original, reemplazo)
@@ -1765,7 +1812,7 @@ def crear_mapa_estatico_con_esri(gdf, titulo, columna_valor, analisis_tipo, nutr
             if nutriente == "NITRÓGENO":
                 cmap = LinearSegmentedColormap.from_list('nitrogeno_gee', PALETAS_GEE['NITROGENO'])
                 vmin, vmax = (PARAMETROS_CULTIVOS[cultivo]['NITROGENO']['min'] * 0.8,
-                              PARAMETROS_CULTivos[cultivo]['NITROGENO']['max'] * 1.2)
+                              PARAMETROS_CULTIVOS[cultivo]['NITROGENO']['max'] * 1.2)
             elif nutriente == "FÓSFORO":
                 cmap = LinearSegmentedColormap.from_list('fosforo_gee', PALETAS_GEE['FOSFORO'])
                 vmin, vmax = (PARAMETROS_CULTIVOS[cultivo]['FOSFORO']['min'] * 0.8,
@@ -1914,7 +1961,6 @@ def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
         )
         
         # Dibujar polígonos de las zonas con borde sutil - SOLUCIÓN CORRECTA
-        # Separar edgecolor y alpha
         gdf_plot.plot(
             ax=ax, 
             color='none', 
@@ -2321,21 +2367,26 @@ if uploaded_file:
             if gdf is not None:
                 st.success(f"✅ **Parcela cargada exitosamente:** {len(gdf)} polígono(s)")
                 area_total = calcular_superficie(gdf)
+                
+                # Mostrar información detallada de los polígonos
+                st.write("**📊 DETALLE DE POLÍGONOS:**")
+                if 'id_zona' in gdf.columns:
+                    for idx, row in gdf.iterrows():
+                        poly_area = calcular_superficie(gpd.GeoDataFrame([row], crs=gdf.crs))
+                        st.write(f"- Zona {row['id_zona']}: {poly_area:.2f} ha")
+                else:
+                    for i in range(len(gdf)):
+                        poly_area = calcular_superficie(gpd.GeoDataFrame([gdf.iloc[i]], crs=gdf.crs))
+                        st.write(f"- Polígono {i+1}: {poly_area:.2f} ha")
+                
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.write("**📊 INFORMACIÓN DE LA PARCELA:**")
+                    st.write("**📊 RESUMEN DE PARCELA:**")
                     st.write(f"- Polígonos: {len(gdf)}")
                     st.write(f"- Área total: {area_total:.1f} ha")
                     st.write(f"- CRS: {gdf.crs}")
                     st.write(f"- Formato: {uploaded_file.name.split('.')[-1].upper()}")
-                    st.write("**📍 Vista Previa:**")
-                    fig, ax = plt.subplots(figsize=(8, 6))
-                    gdf.plot(ax=ax, color='lightgreen', edgecolor='darkgreen', alpha=0.7)
-                    ax.set_title(f"Parcela: {uploaded_file.name}")
-                    ax.set_xlabel("Longitud")
-                    ax.set_ylabel("Latitud")
-                    ax.grid(True, alpha=0.3)
-                    st.pyplot(fig)
+                    
                 with col2:
                     st.write("**🎯 CONFIGURACIÓN GEE:**")
                     st.write(f"- Cultivo: {ICONOS_CULTIVOS[cultivo]} {cultivo}")
@@ -2348,6 +2399,39 @@ if uploaded_file:
                     elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
                         st.write(f"- Intervalo curvas: {intervalo_curvas} m")
                         st.write(f"- Resolución DEM: {resolucion_dem} m")
+                
+                # Vista previa con colores diferentes para cada polígono
+                st.write("**📍 VISTA PREVIA DE PARCELA:**")
+                fig, ax = plt.subplots(figsize=(10, 8))
+                
+                # Asignar colores diferentes a cada polígono
+                colors = plt.cm.Set3(np.linspace(0, 1, len(gdf)))
+                
+                for idx, (_, row) in enumerate(gdf.iterrows()):
+                    if 'id_zona' in gdf.columns:
+                        label = f"Zona {row['id_zona']}"
+                    else:
+                        label = f"Polígono {idx+1}"
+                    
+                    poly_gdf = gpd.GeoDataFrame([row], crs=gdf.crs)
+                    poly_gdf.plot(ax=ax, color=colors[idx], edgecolor='black', 
+                                 alpha=0.7, label=label)
+                    
+                    # Etiquetar el centroide
+                    centroid = row.geometry.centroid
+                    ax.annotate(label, (centroid.x, centroid.y),
+                              xytext=(5, 5), textcoords="offset points",
+                              fontsize=9, fontweight='bold',
+                              bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
+                
+                ax.set_title(f"Parcela: {uploaded_file.name} ({len(gdf)} polígonos)")
+                ax.set_xlabel("Longitud")
+                ax.set_ylabel("Latitud")
+                ax.grid(True, alpha=0.3)
+                ax.legend(loc='upper right')
+                
+                st.pyplot(fig)
+                
                 if st.button("🚀 EJECUTAR ANÁLISIS COMPLETO", type="primary"):
                     resultados = None
                     if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
@@ -2367,6 +2451,7 @@ if uploaded_file:
                             gdf, None, analisis_tipo, n_divisiones,
                             cultivo, None, None, None, None
                         )
+                    
                     # GUARDAR RESULTADOS EN SESSION STATE
                     if resultados and resultados['exitoso']:
                         st.session_state['resultados_guardados'] = {
@@ -2385,6 +2470,7 @@ if uploaded_file:
                             'gdf_original': gdf if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL" else None,
                             'df_power': resultados.get('df_power')
                         }
+                        
                         if analisis_tipo == "ANÁLISIS DE TEXTURA":
                             mostrar_resultados_textura(resultados['gdf_analizado'], cultivo, resultados['area_total'])
                         elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
@@ -2417,6 +2503,7 @@ if uploaded_file:
                                 elif analisis_tipo == "RECOMENDACIONES NPK" and gdf_analizado['valor_recomendado'].mean() > 0:
                                     coef_var = (gdf_analizado['valor_recomendado'].std() / gdf_analizado['valor_recomendado'].mean() * 100)
                                     st.metric("Coef. Variación", f"{coef_var:.1f}%")
+                            
                             # === DATOS DE NASA POWER ===
                             if resultados.get('df_power') is not None:
                                 df_power = resultados['df_power']
@@ -2475,7 +2562,6 @@ if uploaded_file:
                                     prom_rad = serie_rad.mean()
                                     max_rad = serie_rad.max()
                                     min_rad = serie_rad.min()
-                                    # Interpretación simple
                                     if prom_rad > 5.5:
                                         interpretacion = "☀️ **Alta radiación**: Condiciones óptimas para fotosíntesis en cultivos tropicales."
                                     elif prom_rad > 4.0:
