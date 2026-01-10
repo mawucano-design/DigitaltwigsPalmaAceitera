@@ -1765,7 +1765,7 @@ def crear_mapa_estatico_con_esri(gdf, titulo, columna_valor, analisis_tipo, nutr
             if nutriente == "NITRÓGENO":
                 cmap = LinearSegmentedColormap.from_list('nitrogeno_gee', PALETAS_GEE['NITROGENO'])
                 vmin, vmax = (PARAMETROS_CULTIVOS[cultivo]['NITROGENO']['min'] * 0.8,
-                              PARAMETROS_CULTivos[cultivo]['NITROGENO']['max'] * 1.2)
+                              PARAMETROS_CULTIVOS[cultivo]['NITROGENO']['max'] * 1.2)
             elif nutriente == "FÓSFORO":
                 cmap = LinearSegmentedColormap.from_list('fosforo_gee', PALETAS_GEE['FOSFORO'])
                 vmin, vmax = (PARAMETROS_CULTIVOS[cultivo]['FOSFORO']['min'] * 0.8,
