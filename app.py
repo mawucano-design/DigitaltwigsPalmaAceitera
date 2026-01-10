@@ -2574,239 +2574,242 @@ if uploaded_file:
                                 elif analisis_tipo == "RECOMENDACIONES NPK" and gdf_analizado['valor_recomendado'].mean() > 0:
                                     coef_var = (gdf_analizado['valor_recomendado'].std() / gdf_analizado['valor_recomendado'].mean() * 100)
                                     st.metric("Coef. Variación", f"{coef_var:.1f}%")
-                            # === DATOS DE NASA POWER ===
-                            if resultados.get('df_power') is not None:
-                                df_power = resultados['df_power']
-                                st.subheader("🌤️ DATOS METEOROLÓGICOS (NASA POWER)")
-                                col5, col6, col7 = st.columns(3)
-                                with col5:
-                                    st.metric("☀️ Radiación Solar", f"{df_power['radiacion_solar'].mean():.1f} kWh/m²/día")
-                                with col6:
-                                    st.metric("💨 Viento a 2m", f"{df_power['viento_2m'].mean():.2f} m/s")
-                                with col7:
-                                    st.metric("💧 NDWI Promedio", f"{gdf_analizado['ndwi'].mean():.3f}")
+                          # === DATOS DE NASA POWER ===
+if resultados.get('df_power') is not None:
+    df_power = resultados['df_power']
+    st.subheader("🌤️ DATOS METEOROLÓGICOS (NASA POWER)")
+    col5, col6, col7 = st.columns(3)
+    with col5:
+        st.metric("☀️ Radiación Solar", f"{df_power['radiacion_solar'].mean():.1f} kWh/m²/día")
+    with col6:
+        st.metric("💨 Viento a 2m", f"{df_power['viento_2m'].mean():.2f} m/s")
+    with col7:
+        st.metric("💧 NDWI Promedio", f"{gdf_analizado['ndwi'].mean():.3f}")
 
-                                # === PESTAÑAS CON NUEVA PESTAÑA DE POTENCIAL DE COSECHA ===
-                                tab_radiacion, tab_viento, tab_precip, tab_cosecha = st.tabs([
-                                    "☀️ Radiación Solar",
-                                    "💨 Velocidad del Viento",
-                                    "🌧️ Precipitación",
-                                    "🔥 Potencial de Cosecha"
-                                ])
+    # === PESTAÑAS CON NUEVA PESTAÑA DE POTENCIAL DE COSECHA ===
+    try:
+        tab_radiacion, tab_viento, tab_precip, tab_cosecha = st.tabs([
+            "☀️ Radiación Solar",
+            "💨 Velocidad del Viento",
+            "🌧️ Precipitación",
+            "🔥 Potencial de Cosecha"
+        ])
 
-                                def crear_grafico_personalizado(series, titulo, ylabel, color_linea, fondo_grafico='#f8f9fa', color_texto='#2c3e50'):
-                                    fig, ax = plt.subplots(figsize=(10, 4))
-                                    ax.set_facecolor(fondo_grafico)
-                                    fig.patch.set_facecolor(fondo_grafico)
-                                    ax.plot(series.index, series.values, color=color_linea, linewidth=2.2)
-                                    ax.set_title(titulo, fontsize=14, fontweight='bold', color=color_texto)
-                                    ax.set_ylabel(ylabel, fontsize=12, color=color_texto)
-                                    ax.set_xlabel("Fecha", fontsize=11, color=color_texto)
-                                    ax.tick_params(axis='x', colors=color_texto, rotation=0)
-                                    ax.tick_params(axis='y', colors=color_texto)
-                                    ax.grid(True, color='#cbd5e0', linestyle='--', linewidth=0.7, alpha=0.7)
-                                    for spine in ax.spines.values():
-                                        spine.set_color('#cbd5e0')
-                                    plt.tight_layout()
-                                    return fig
+        def crear_grafico_personalizado(series, titulo, ylabel, color_linea, fondo_grafico='#f8f9fa', color_texto='#2c3e50'):
+            fig, ax = plt.subplots(figsize=(10, 4))
+            ax.set_facecolor(fondo_grafico)
+            fig.patch.set_facecolor(fondo_grafico)
+            ax.plot(series.index, series.values, color=color_linea, linewidth=2.2)
+            ax.set_title(titulo, fontsize=14, fontweight='bold', color=color_texto)
+            ax.set_ylabel(ylabel, fontsize=12, color=color_texto)
+            ax.set_xlabel("Fecha", fontsize=11, color=color_texto)
+            ax.tick_params(axis='x', colors=color_texto, rotation=0)
+            ax.tick_params(axis='y', colors=color_texto)
+            ax.grid(True, color='#cbd5e0', linestyle='--', linewidth=0.7, alpha=0.7)
+            for spine in ax.spines.values():
+                spine.set_color('#cbd5e0')
+            plt.tight_layout()
+            return fig
 
-                                def crear_grafico_barras_personalizado(series, titulo, ylabel, color_barra, fondo_grafico='#f8f9fa', color_texto='#2c3e50'):
-                                    fig, ax = plt.subplots(figsize=(10, 4))
-                                    ax.set_facecolor(fondo_grafico)
-                                    fig.patch.set_facecolor(fondo_grafico)
-                                    ax.bar(series.index, series.values, color=color_barra, alpha=0.85)
-                                    ax.set_title(titulo, fontsize=14, fontweight='bold', color=color_texto)
-                                    ax.set_ylabel(ylabel, fontsize=12, color=color_texto)
-                                    ax.set_xlabel("Fecha", fontsize=11, color=color_texto)
-                                    ax.tick_params(axis='x', colors=color_texto, rotation=0)
-                                    ax.tick_params(axis='y', colors=color_texto)
-                                    ax.grid(axis='y', color='#cbd5e0', linestyle='--', linewidth=0.7, alpha=0.7)
-                                    for spine in ax.spines.values():
-                                        spine.set_color('#cbd5e0')
-                                    plt.tight_layout()
-                                    return fig
+        def crear_grafico_barras_personalizado(series, titulo, ylabel, color_barra, fondo_grafico='#f8f9fa', color_texto='#2c3e50'):
+            fig, ax = plt.subplots(figsize=(10, 4))
+            ax.set_facecolor(fondo_grafico)
+            fig.patch.set_facecolor(fondo_grafico)
+            ax.bar(series.index, series.values, color=color_barra, alpha=0.85)
+            ax.set_title(titulo, fontsize=14, fontweight='bold', color=color_texto)
+            ax.set_ylabel(ylabel, fontsize=12, color=color_texto)
+            ax.set_xlabel("Fecha", fontsize=11, color=color_texto)
+            ax.tick_params(axis='x', colors=color_texto, rotation=0)
+            ax.tick_params(axis='y', colors=color_texto)
+            ax.grid(axis='y', color='#cbd5e0', linestyle='--', linewidth=0.7, alpha=0.7)
+            for spine in ax.spines.values():
+                spine.set_color('#cbd5e0')
+            plt.tight_layout()
+            return fig
 
-                                # === PESTAÑA: RADIACIÓN SOLAR ===
-                                with tab_radiacion:
-                                    serie_rad = df_power.set_index('fecha')['radiacion_solar']
-                                    prom_rad = serie_rad.mean()
-                                    max_rad = serie_rad.max()
-                                    min_rad = serie_rad.min()
-                                    # Interpretación simple
-                                    if prom_rad > 5.5:
-                                        interpretacion = "☀️ **Alta radiación**: Condiciones óptimas para fotosíntesis en cultivos tropicales."
-                                    elif prom_rad > 4.0:
-                                        interpretacion = "🌤️ **Radiación moderada**: Adecuada para la mayoría de cultivos, con posible limitación en días nublados."
-                                    else:
-                                        interpretacion = "☁️ **Radiación baja**: Puede limitar el crecimiento; vigilar desarrollo vegetativo."
+        # === PESTAÑA: RADIACIÓN SOLAR ===
+        with tab_radiacion:
+            serie_rad = df_power.set_index('fecha')['radiacion_solar']
+            prom_rad = serie_rad.mean()
+            max_rad = serie_rad.max()
+            min_rad = serie_rad.min()
+            if prom_rad > 5.5:
+                interpretacion = "☀️ **Alta radiación**: Condiciones óptimas para fotosíntesis en cultivos tropicales."
+            elif prom_rad > 4.0:
+                interpretacion = "🌤️ **Radiación moderada**: Adecuada para la mayoría de cultivos, con posible limitación en días nublados."
+            else:
+                interpretacion = "☁️ **Radiación baja**: Puede limitar el crecimiento; vigilar desarrollo vegetativo."
 
-                                    col_r1, col_r2, col_r3 = st.columns(3)
-                                    with col_r1:
-                                        st.metric("Promedio", f"{prom_rad:.1f} kWh/m²/día")
-                                    with col_r2:
-                                        st.metric("Máximo", f"{max_rad:.1f}")
-                                    with col_r3:
-                                        st.metric("Mínimo", f"{min_rad:.1f}")
+            col_r1, col_r2, col_r3 = st.columns(3)
+            with col_r1:
+                st.metric("Promedio", f"{prom_rad:.1f} kWh/m²/día")
+            with col_r2:
+                st.metric("Máximo", f"{max_rad:.1f}")
+            with col_r3:
+                st.metric("Mínimo", f"{min_rad:.1f}")
 
-                                    st.pyplot(crear_grafico_personalizado(
-                                        serie_rad,
-                                        "Evolución Diaria de Radiación Solar",
-                                        "Radiación (kWh/m²/día)",
-                                        color_linea='#e67e22'
-                                    ))
-                                    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
+            st.pyplot(crear_grafico_personalizado(
+                serie_rad,
+                "Evolución Diaria de Radiación Solar",
+                "Radiación (kWh/m²/día)",
+                color_linea='#e67e22'
+            ))
+            st.markdown(f"**Interpretación agronómica:** {interpretacion}")
 
-                               # === PESTAÑA: VIENTO ===
-with tab_viento:
-    serie_viento = df_power.set_index('fecha')['viento_2m']
-    prom_viento = serie_viento.mean()
-    max_viento = serie_viento.max()
-    min_viento = serie_viento.min()
-    if prom_viento < 2.0:
-        interpretacion = "🍃 **Viento suave**: Bajo riesgo de estrés mecánico o deshidratación."
-    elif prom_viento < 4.0:
-        interpretacion = "🌬️ **Viento moderado**: Aceptable; monitorear en etapas sensibles (floración, fruto joven)."
-    else:
-        interpretacion = "💨 **Viento fuerte**: Alto riesgo de daño mecánico, aumento de evapotranspiración y posible caída de frutos."
+        # === PESTAÑA: VIENTO ===
+        with tab_viento:
+            serie_viento = df_power.set_index('fecha')['viento_2m']
+            prom_viento = serie_viento.mean()
+            max_viento = serie_viento.max()
+            min_viento = serie_viento.min()
+            if prom_viento < 2.0:
+                interpretacion = "🍃 **Viento suave**: Bajo riesgo de estrés mecánico o deshidratación."
+            elif prom_viento < 4.0:
+                interpretacion = "🌬️ **Viento moderado**: Aceptable; monitorear en etapas sensibles (floración, fruto joven)."
+            else:
+                interpretacion = "💨 **Viento fuerte**: Alto riesgo de daño mecánico, aumento de evapotranspiración y posible caída de frutos."
 
-    col_w1, col_w2, col_w3 = st.columns(3)
-    with col_w1:
-        st.metric("Promedio", f"{prom_viento:.2f} m/s")
-    with col_w2:
-        st.metric("Máximo", f"{max_viento:.2f}")
-    with col_w3:
-        st.metric("Mínimo", f"{min_viento:.2f}")
+            col_w1, col_w2, col_w3 = st.columns(3)
+            with col_w1:
+                st.metric("Promedio", f"{prom_viento:.2f} m/s")
+            with col_w2:
+                st.metric("Máximo", f"{max_viento:.2f}")
+            with col_w3:
+                st.metric("Mínimo", f"{min_viento:.2f}")
 
-    st.pyplot(crear_grafico_personalizado(
-        serie_viento,
-        "Evolución Diaria de Velocidad del Viento",
-        "Viento a 2m (m/s)",
-        color_linea='#3498db'
-    ))
-    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
+            st.pyplot(crear_grafico_personalizado(
+                serie_viento,
+                "Evolución Diaria de Velocidad del Viento",
+                "Viento a 2m (m/s)",
+                color_linea='#3498db'
+            ))
+            st.markdown(f"**Interpretación agronómica:** {interpretacion}")
 
-                             # === PESTAÑA: PRECIPITACIÓN ===
-with tab_precip:
-    serie_precip = df_power.set_index('fecha')['precipitacion']
-    prom_precip = serie_precip.mean()
-    total_precip = serie_precip.sum()
-    dias_lluvia = (serie_precip > 0.1).sum()
-    if prom_precip > 8:
-        interpretacion = "🌧️ **Precipitación alta**: Riesgo de encharcamiento y lixiviación de nutrientes. Asegurar drenaje."
-    elif prom_precip > 3:
-        interpretacion = "💧 **Precipitación adecuada**: Condiciones hídricas favorables para cultivos tropicales."
-    else:
-        interpretacion = "🏜️ **Precipitación baja**: Posible déficit hídrico; considerar riego suplementario."
+        # === PESTAÑA: PRECIPITACIÓN ===
+        with tab_precip:
+            serie_precip = df_power.set_index('fecha')['precipitacion']
+            prom_precip = serie_precip.mean()
+            total_precip = serie_precip.sum()
+            dias_lluvia = (serie_precip > 0.1).sum()
+            if prom_precip > 8:
+                interpretacion = "🌧️ **Precipitación alta**: Riesgo de encharcamiento y lixiviación de nutrientes. Asegurar drenaje."
+            elif prom_precip > 3:
+                interpretacion = "💧 **Precipitación adecuada**: Condiciones hídricas favorables para cultivos tropicales."
+            else:
+                interpretacion = "🏜️ **Precipitación baja**: Posible déficit hídrico; considerar riego suplementario."
 
-    col_p1, col_p2, col_p3 = st.columns(3)
-    with col_p1:
-        st.metric("Total", f"{total_precip:.1f} mm")
-    with col_p2:
-        st.metric("Promedio", f"{prom_precip:.1f} mm/día")
-    with col_p3:
-        st.metric("Días con lluvia", f"{dias_lluvia}")
+            col_p1, col_p2, col_p3 = st.columns(3)
+            with col_p1:
+                st.metric("Total", f"{total_precip:.1f} mm")
+            with col_p2:
+                st.metric("Promedio", f"{prom_precip:.1f} mm/día")
+            with col_p3:
+                st.metric("Días con lluvia", f"{dias_lluvia}")
 
-    st.pyplot(crear_grafico_barras_personalizado(
-        serie_precip,
-        "Precipitación Diaria",
-        "Precipitación (mm/día)",
-        color_barra='#2ecc71'
-    ))
-    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
+            st.pyplot(crear_grafico_barras_personalizado(
+                serie_precip,
+                "Precipitación Diaria",
+                "Precipitación (mm/día)",
+                color_barra='#2ecc71'
+            ))
+            st.markdown(f"**Interpretación agronómica:** {interpretacion}")
 
-                                # === PESTAÑA: POTENCIAL DE COSECHA ===
-                                with tab_cosecha:
-                                    st.subheader("🔥 Análisis de Potencial de Cosecha - Puntos Calientes")
-                                    st.markdown("""
-                                    **Metodología:**
-                                    - Se integran datos de fertilidad (NPK), radiación solar, humedad (NDWI) y estrés por viento
-                                    - Las zonas con valores más altos (rojo/amarillo) son los **puntos calientes** para mejor cosecha
-                                    - Los círculos amarillos marcan zonas con potencial >0.7
-                                    """)
+        # === PESTAÑA: POTENCIAL DE COSECHA ===
+        with tab_cosecha:
+            st.subheader("🔥 Análisis de Potencial de Cosecha - Puntos Calientes")
+            st.markdown("""
+            **Metodología:**
+            - Se integran datos de fertilidad (NPK), radiación solar, humedad (NDWI) y estrés por viento
+            - Las zonas con valores más altos (rojo/amarillo) son los **puntos calientes** para mejor cosecha
+            - Los círculos amarillos marcan zonas con potencial >0.7
+            """)
 
-                                    # --- Paso 1: Agregar datos meteorológicos promedio a cada zona ---
-                                    rad_prom = df_power['radiacion_solar'].mean()
-                                    viento_prom = df_power['viento_2m'].mean()
-                                    
-                                    # Asignar los mismos valores promedio a todas las zonas
-                                    gdf_analizado['radiacion_solar'] = rad_prom
-                                    gdf_analizado['viento_2m'] = viento_prom
+            # --- Paso 1: Agregar datos meteorológicos promedio a cada zona ---
+            rad_prom = df_power['radiacion_solar'].mean()
+            viento_prom = df_power['viento_2m'].mean()
+            
+            # Asignar los mismos valores promedio a todas las zonas
+            gdf_analizado['radiacion_solar'] = rad_prom
+            gdf_analizado['viento_2m'] = viento_prom
 
-                                    # --- Paso 2: Normalizar cada variable a [0, 1] ---
-                                    def normalizar_solar(valor):
-                                        return np.clip((valor - 3.0) / (7.0 - 3.0), 0, 1)
+            # --- Paso 2: Normalizar cada variable a [0, 1] ---
+            def normalizar_solar(valor):
+                return np.clip((valor - 3.0) / (7.0 - 3.0), 0, 1)
 
-                                    def normalizar_viento(valor):
-                                        return np.clip(1 - (valor - 1.0) / (5.0 - 1.0), 0, 1)
+            def normalizar_viento(valor):
+                return np.clip(1 - (valor - 1.0) / (5.0 - 1.0), 0, 1)
 
-                                    def normalizar_humedad(ndwi):
-                                        return np.clip((ndwi - 0.1) / (0.4 - 0.1), 0, 1)
+            def normalizar_humedad(ndwi):
+                return np.clip((ndwi - 0.1) / (0.4 - 0.1), 0, 1)
 
-                                    gdf_analizado['solar_norm'] = gdf_analizado['radiacion_solar'].apply(normalizar_solar)
-                                    gdf_analizado['viento_norm'] = gdf_analizado['viento_2m'].apply(normalizar_viento)
-                                    gdf_analizado['humedad_norm'] = gdf_analizado['ndwi'].apply(normalizar_humedad)
+            gdf_analizado['solar_norm'] = gdf_analizado['radiacion_solar'].apply(normalizar_solar)
+            gdf_analizado['viento_norm'] = gdf_analizado['viento_2m'].apply(normalizar_viento)
+            gdf_analizado['humedad_norm'] = gdf_analizado['ndwi'].apply(normalizar_humedad)
 
-                                    # --- Paso 3: Calcular índice integrado ---
-                                    w_fertilidad = 0.40
-                                    w_solar = 0.25
-                                    w_humedad = 0.20
-                                    w_viento = 0.15
+            # --- Paso 3: Calcular índice integrado ---
+            w_fertilidad = 0.40
+            w_solar = 0.25
+            w_humedad = 0.20
+            w_viento = 0.15
 
-                                    gdf_analizado['potencial_cosecha'] = (
-                                        w_fertilidad * gdf_analizado['npk_actual'] +
-                                        w_solar * gdf_analizado['solar_norm'] +
-                                        w_humedad * gdf_analizado['humedad_norm'] +
-                                        w_viento * gdf_analizado['viento_norm']
-                                    ).clip(0, 1)
+            gdf_analizado['potencial_cosecha'] = (
+                w_fertilidad * gdf_analizado['npk_actual'] +
+                w_solar * gdf_analizado['solar_norm'] +
+                w_humedad * gdf_analizado['humedad_norm'] +
+                w_viento * gdf_analizado['viento_norm']
+            ).clip(0, 1)
 
-                                    # Escalar a toneladas/ha según cultivo base
-                                    produccion_base = {
-                                        'PALMA ACEITERA': 20,
-                                        'CACAO': 1.2,
-                                        'BANANO': 35,
-                                        'CAFÉ': 2.5
-                                    }
-                                    base = produccion_base.get(cultivo, 10)
-                                    gdf_analizado['produccion_estimada'] = gdf_analizado['potencial_cosecha'] * base
+            # Escalar a toneladas/ha según cultivo base
+            produccion_base = {
+                'PALMA ACEITERA': 20,
+                'CACAO': 1.2,
+                'BANANO': 35,
+                'CAFÉ': 2.5
+            }
+            base = produccion_base.get(cultivo, 10)
+            gdf_analizado['produccion_estimada'] = gdf_analizado['potencial_cosecha'] * base
 
-                                    # --- Paso 4: Mostrar métricas resumen ---
-                                    col_c1, col_c2, col_c3, col_c4 = st.columns(4)
-                                    with col_c1:
-                                        st.metric("Potencial Promedio", f"{gdf_analizado['potencial_cosecha'].mean():.2f}")
-                                    with col_c2:
-                                        st.metric("Máximo", f"{gdf_analizado['potencial_cosecha'].max():.2f}")
-                                    with col_c3:
-                                        st.metric("Producción Estimada", f"{gdf_analizado['produccion_estimada'].mean():.1f} t/ha")
-                                    with col_c4:
-                                        total_est = (gdf_analizado['produccion_estimada'] * gdf_analizado['area_ha']).sum()
-                                        st.metric("Total Parcela", f"{total_est:.1f} t")
+            # --- Paso 4: Mostrar métricas resumen ---
+            col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+            with col_c1:
+                st.metric("Potencial Promedio", f"{gdf_analizado['potencial_cosecha'].mean():.2f}")
+            with col_c2:
+                st.metric("Máximo", f"{gdf_analizado['potencial_cosecha'].max():.2f}")
+            with col_c3:
+                st.metric("Producción Estimada", f"{gdf_analizado['produccion_estimada'].mean():.1f} t/ha")
+            with col_c4:
+                total_est = (gdf_analizado['produccion_estimada'] * gdf_analizado['area_ha']).sum()
+                st.metric("Total Parcela", f"{total_est:.1f} t")
 
-                                    # --- Paso 5: Crear mapa de calor con ESRI ---
-                                    mapa_calor = crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo)
-                                    if mapa_calor:
-                                        st.image(mapa_calor, use_container_width=True)
-                                        st.download_button(
-                                            "📥 Descargar Mapa de Calor",
-                                            mapa_calor,
-                                            f"potencial_cosecha_calor_{cultivo}_{datetime.now().strftime('%Y%m%d')}.png",
-                                            "image/png"
-                                        )
+            # --- Paso 5: Crear mapa de calor con ESRI ---
+            mapa_calor = crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo)
+            if mapa_calor:
+                st.image(mapa_calor, use_container_width=True)
+                st.download_button(
+                    "📥 Descargar Mapa de Calor",
+                    mapa_calor,
+                    f"potencial_cosecha_calor_{cultivo}_{datetime.now().strftime('%Y%m%d')}.png",
+                    "image/png"
+                )
 
-                                    # --- Paso 6: Identificar puntos calientes ---
-                                    zonas_calientes = gdf_analizado[gdf_analizado['potencial_cosecha'] > 0.7]
-                                    if not zonas_calientes.empty:
-                                        st.subheader("📍 ZONAS CALIENTES (Potencial > 0.7)")
-                                        st.dataframe(zonas_calientes[['id_zona', 'area_ha', 'potencial_cosecha', 'produccion_estimada']].sort_values('potencial_cosecha', ascending=False))
-                                        
-                                        total_area_caliente = zonas_calientes['area_ha'].sum()
-                                        st.metric(f"Área total de zonas calientes", f"{total_area_caliente:.2f} ha")
-                                        
-                                        st.markdown("**Recomendaciones para zonas calientes:**")
-                                        st.markdown("""
-                                        - ✅ **Maximizar inversión** en estas zonas (fertilización, riego)
-                                        - ✅ **Priorizar cosecha** temprana en estas áreas
-                                        - ✅ **Monitoreo intensivo** para mantener altos rendimientos
-                                        """)
+            # --- Paso 6: Identificar puntos calientes ---
+            zonas_calientes = gdf_analizado[gdf_analizado['potencial_cosecha'] > 0.7]
+            if not zonas_calientes.empty:
+                st.subheader("📍 ZONAS CALIENTES (Potencial > 0.7)")
+                st.dataframe(zonas_calientes[['id_zona', 'area_ha', 'potencial_cosecha', 'produccion_estimada']].sort_values('potencial_cosecha', ascending=False))
+                
+                total_area_caliente = zonas_calientes['area_ha'].sum()
+                st.metric(f"Área total de zonas calientes", f"{total_area_caliente:.2f} ha")
+                
+                st.markdown("**Recomendaciones para zonas calientes:**")
+                st.markdown("""
+                - ✅ **Maximizar inversión** en estas zonas (fertilización, riego)
+                - ✅ **Priorizar cosecha** temprana en estas áreas
+                - ✅ **Monitoreo intensivo** para mantener altos rendimientos
+                """)
+    
+    except Exception as e:
+        st.error(f"Error procesando datos de NASA POWER: {str(e)}")
 
                             # Crear mapa estático con ESRI para análisis GEE
                             if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
