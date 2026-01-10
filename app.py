@@ -1816,7 +1816,7 @@ def crear_mapa_estatico_con_esri(gdf, titulo, columna_valor, analisis_tipo, nutr
             elif nutriente == "FÓSFORO":
                 cmap = LinearSegmentedColormap.from_list('fosforo_gee', PALETAS_GEE['FOSFORO'])
                 vmin, vmax = (PARAMETROS_CULTIVOS[cultivo]['FOSFORO']['min'] * 0.8,
-                              PARAMETROS_CULTIVOS[cultivo]['FOSFORO']['max'] * 1.2)
+                              PARAMETROS_CULTivos[cultivo]['FOSFORO']['max'] * 1.2)
             else:
                 cmap = LinearSegmentedColormap.from_list('potasio_gee', PALETAS_GEE['POTASIO'])
                 vmin, vmax = (PARAMETROS_CULTIVOS[cultivo]['POTASIO']['min'] * 0.8,
@@ -2186,6 +2186,242 @@ def ejecutar_analisis(gdf, nutriente, analisis_tipo, n_divisiones, cultivo,
         st.error(f"Detalle: {traceback.format_exc()}")
         return resultados
 
+# ===== FUNCIONES PARA ANALIZAR TODOS LOS POLÍGONOS =====
+def analizar_todos_poligonos(gdf_total, nutriente, analisis_tipo, n_divisiones, cultivo,
+                           satelite=None, indice=None, fecha_inicio=None,
+                           fecha_fin=None, intervalo_curvas=5.0, resolucion_dem=10.0):
+    """
+    Analiza todos los polígonos del archivo cargado, dividiendo cada uno en zonas.
+    Combina los resultados en un único GeoDataFrame.
+    """
+    resultados_totales = {
+        'exitoso': False,
+        'gdf_analizado_total': None,
+        'mapa_buffer_total': None,
+        'estadisticas_por_poligono': {},
+        'recomendaciones_totales': [],
+        'area_total_combinada': 0,
+        'df_power': None,
+        'poligonos_procesados': 0
+    }
+    
+    try:
+        gdf_total = validar_y_corregir_crs(gdf_total)
+        resultados_por_poligono = []
+        
+        # Si el archivo ya tiene ID de zona, usarlo; si no, crearlo
+        if 'id_zona' not in gdf_total.columns:
+            gdf_total['id_zona'] = range(1, len(gdf_total) + 1)
+        
+        # Crear barra de progreso
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for idx, poligono_row in gdf_total.iterrows():
+            poligono_id = poligono_row['id_zona']
+            status_text.text(f"📊 Analizando polígono {poligono_id} de {len(gdf_total)}...")
+            
+            # Crear GeoDataFrame con solo este polígono
+            poligono_gdf = gpd.GeoDataFrame(
+                [poligono_row], 
+                geometry='geometry', 
+                crs=gdf_total.crs
+            )
+            
+            # Ejecutar análisis para este polígono individual
+            resultados_poligono = ejecutar_analisis(
+                poligono_gdf, nutriente, analisis_tipo, n_divisiones,
+                cultivo, satelite, indice, fecha_inicio, fecha_fin,
+                intervalo_curvas, resolucion_dem
+            )
+            
+            if resultados_poligono and resultados_poligono['exitoso']:
+                # Agregar información del polígono original a los resultados
+                gdf_analizado = resultados_poligono['gdf_analizado']
+                if gdf_analizado is not None and not gdf_analizado.empty:
+                    # Crear un ID compuesto: polígono.zona
+                    gdf_analizado['id_poligono'] = poligono_id
+                    gdf_analizado['id_zona_compuesto'] = [
+                        f"{poligono_id}.{zona_id}" 
+                        for zona_id in gdf_analizado['id_zona']
+                    ]
+                    
+                    resultados_por_poligono.append({
+                        'poligono_id': poligono_id,
+                        'gdf_analizado': gdf_analizado,
+                        'area_poligono': resultados_poligono['area_total'],
+                        'estadisticas': resultados_poligono.get('estadisticas', {})
+                    })
+                
+                # Mantener datos de NASA POWER del primer polígono
+                if resultados_totales['df_power'] is None and 'df_power' in resultados_poligono:
+                    resultados_totales['df_power'] = resultados_poligono['df_power']
+            
+            # Actualizar barra de progreso
+            progress_bar.progress((idx + 1) / len(gdf_total))
+        
+        status_text.text("✅ Análisis completado!")
+        
+        # Combinar todos los resultados
+        if resultados_por_poligono:
+            # Combinar todos los GeoDataFrames
+            gdfs_a_combinar = [r['gdf_analizado'] for r in resultados_por_poligono]
+            gdf_combinado = pd.concat(gdfs_a_combinar, ignore_index=True)
+            
+            # Calcular área total combinada
+            area_total_combinada = sum(r['area_poligono'] for r in resultados_por_poligono)
+            
+            resultados_totales.update({
+                'exitoso': True,
+                'gdf_analizado_total': gdf_combinado,
+                'poligonos_procesados': len(resultados_por_poligono),
+                'area_total_combinada': area_total_combinada,
+                'resultados_por_poligono': resultados_por_poligono
+            })
+        
+        progress_bar.empty()
+        status_text.empty()
+        
+        return resultados_totales
+        
+    except Exception as e:
+        st.error(f"❌ Error en análisis de todos los polígonos: {str(e)}")
+        import traceback
+        st.error(f"Detalle: {traceback.format_exc()}")
+        return resultados_totales
+
+# ===== FUNCIÓN PARA MOSTRAR RESULTADOS COMBINADOS =====
+def mostrar_resultados_combinados(resultados_totales, cultivo, analisis_tipo, nutriente=None):
+    """
+    Muestra los resultados combinados de todos los polígonos analizados.
+    """
+    if not resultados_totales['exitoso']:
+        st.error("❌ No se pudieron procesar los polígonos")
+        return
+    
+    gdf_combinado = resultados_totales['gdf_analizado_total']
+    area_total = resultados_totales['area_total_combinada']
+    poligonos_procesados = resultados_totales['poligonos_procesados']
+    
+    st.success(f"✅ **ANÁLISIS COMPLETADO:** {poligonos_procesados} polígonos procesados, {len(gdf_combinado)} zonas totales")
+    
+    # Mostrar resumen general
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("📊 Polígonos", poligonos_procesados)
+    with col2:
+        st.metric("🧩 Zonas Totales", len(gdf_combinado))
+    with col3:
+        st.metric("🗺️ Área Total", f"{area_total:.1f} ha")
+    with col4:
+        if analisis_tipo == "FERTILIDAD ACTUAL" and 'npk_actual' in gdf_combinado.columns:
+            valor_prom = gdf_combinado['npk_actual'].mean()
+            st.metric("📈 NPK Promedio", f"{valor_prom:.3f}")
+        elif analisis_tipo == "RECOMENDACIONES NPK" and 'valor_recomendado' in gdf_combinado.columns:
+            valor_prom = gdf_combinado['valor_recomendado'].mean()
+            st.metric(f"📊 {nutriente} Promedio", f"{valor_prom:.1f} kg/ha")
+    
+    # Mostrar estadísticas por polígono
+    st.subheader("📋 ESTADÍSTICAS POR POLÍGONO")
+    
+    datos_poligonos = []
+    for resultado in resultados_totales.get('resultados_por_poligono', []):
+        poligono_id = resultado['poligono_id']
+        area_poligono = resultado['area_poligono']
+        gdf_poligono = resultado['gdf_analizado']
+        
+        datos_poligono = {
+            'Polígono': poligono_id,
+            'Área (ha)': f"{area_poligono:.2f}",
+            'Zonas': len(gdf_poligono)
+        }
+        
+        # Agregar métricas específicas según tipo de análisis
+        if analisis_tipo == "FERTILIDAD ACTUAL" and 'npk_actual' in gdf_poligono.columns:
+            datos_poligono['NPK Promedio'] = f"{gdf_poligono['npk_actual'].mean():.3f}"
+            datos_poligono['NDVI Promedio'] = f"{gdf_poligono['ndvi'].mean():.3f}"
+        
+        elif analisis_tipo == "RECOMENDACIONES NPK" and 'valor_recomendado' in gdf_poligono.columns:
+            datos_poligono[f'{nutriente} Promedio'] = f"{gdf_poligono['valor_recomendado'].mean():.1f}"
+            datos_poligono['NDRE Promedio'] = f"{gdf_poligono['ndre'].mean():.3f}"
+        
+        elif analisis_tipo == "ANÁLISIS DE TEXTURA" and 'textura_suelo' in gdf_poligono.columns:
+            textura_pred = gdf_poligono['textura_suelo'].mode()[0] if len(gdf_poligono) > 0 else "N/D"
+            datos_poligono['Textura Predominante'] = textura_pred
+        
+        datos_poligonos.append(datos_poligono)
+    
+    if datos_poligonos:
+        df_resumen = pd.DataFrame(datos_poligonos)
+        st.dataframe(df_resumen, use_container_width=True)
+    
+    # Mapa combinado de todos los polígonos
+    if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
+        columna_valor = 'valor_recomendado' if analisis_tipo == "RECOMENDACIONES NPK" else 'npk_actual'
+        
+        # Crear mapa combinado
+        mapa_combinado = crear_mapa_estatico_con_esri(
+            gdf_combinado,
+            f"ANÁLISIS COMBINADO - {analisis_tipo}",
+            columna_valor,
+            analisis_tipo,
+            nutriente,
+            cultivo,
+            satelite_seleccionado
+        )
+        
+        if mapa_combinado:
+            st.subheader(f"🗺️ MAPA COMBINADO - TODOS LOS POLÍGONOS")
+            st.image(mapa_combinado, use_container_width=True)
+            
+            st.download_button(
+                "📥 Descargar Mapa Combinado",
+                mapa_combinado,
+                f"mapa_combinado_{cultivo}_{datetime.now().strftime('%Y%m%d_%H%M')}.png",
+                "image/png"
+            )
+    
+    # Mostrar datos detallados por zona
+    st.subheader("🔍 DATOS DETALLADOS POR ZONA")
+    
+    columnas_a_mostrar = ['id_poligono', 'id_zona_compuesto', 'area_ha']
+    
+    if analisis_tipo == "FERTILIDAD ACTUAL":
+        columnas_a_mostrar.extend(['npk_actual', 'ndvi', 'ndre', 'humedad_suelo'])
+    elif analisis_tipo == "RECOMENDACIONES NPK":
+        columnas_a_mostrar.extend(['valor_recomendado', 'npk_actual', 'ndre', 'humedad_suelo'])
+    elif analisis_tipo == "ANÁLISIS DE TEXTURA":
+        columnas_a_mostrar.extend(['textura_suelo', 'arena', 'limo', 'arcilla'])
+    
+    columnas_a_mostrar = [col for col in columnas_a_mostrar if col in gdf_combinado.columns]
+    
+    if columnas_a_mostrar:
+        df_detalle = gdf_combinado[columnas_a_mostrar].copy()
+        
+        # Renombrar columnas para mejor visualización
+        rename_dict = {
+            'id_poligono': 'Polígono',
+            'id_zona_compuesto': 'Zona',
+            'area_ha': 'Área (ha)',
+            'npk_actual': 'NPK Actual',
+            'valor_recomendado': 'Recomendación',
+            'ndvi': 'NDVI',
+            'ndre': 'NDRE',
+            'humedad_suelo': 'Humedad',
+            'textura_suelo': 'Textura',
+            'arena': 'Arena (%)',
+            'limo': 'Limo (%)',
+            'arcilla': 'Arcilla (%)'
+        }
+        
+        df_detalle = df_detalle.rename(columns={k: v for k, v in rename_dict.items() if k in df_detalle.columns})
+        st.dataframe(df_detalle.head(50), use_container_width=True)
+        
+        # Botón para ver todos los datos
+        if len(df_detalle) > 50:
+            with st.expander("📄 Ver todas las zonas"):
+                st.dataframe(df_detalle, use_container_width=True)
+
 # ===== FUNCIONES DE VISUALIZACIÓN =====
 def mostrar_resultados_textura(gdf_analizado, cultivo, area_total):
     st.subheader("📊 ESTADÍSTICAS DE TEXTURA")
@@ -2432,350 +2668,48 @@ if uploaded_file:
                 
                 st.pyplot(fig)
                 
-                if st.button("🚀 EJECUTAR ANÁLISIS COMPLETO", type="primary"):
-                    resultados = None
-                    if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
-                        resultados = ejecutar_analisis(
-                            gdf, nutriente, analisis_tipo, n_divisiones,
-                            cultivo, satelite_seleccionado, indice_seleccionado,
-                            fecha_inicio, fecha_fin
+                # BOTÓN MODIFICADO PARA EJECUTAR ANÁLISIS EN TODOS LOS POLÍGONOS
+                if st.button("🚀 EJECUTAR ANÁLISIS EN TODOS LOS POLÍGONOS", type="primary"):
+                    with st.spinner(f"🔍 Analizando {len(gdf)} polígonos..."):
+                        resultados_totales = analizar_todos_poligonos(
+                            gdf,
+                            nutriente,
+                            analisis_tipo,
+                            n_divisiones,
+                            cultivo,
+                            satelite_seleccionado if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"] else None,
+                            indice_seleccionado if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"] else None,
+                            fecha_inicio if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"] else None,
+                            fecha_fin if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"] else None,
+                            intervalo_curvas if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL" else 5.0,
+                            resolucion_dem if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL" else 10.0
                         )
-                    elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
-                        resultados = ejecutar_analisis(
-                            gdf, None, analisis_tipo, n_divisiones,
-                            cultivo, None, None, None, None,
-                            intervalo_curvas, resolucion_dem
-                        )
-                    else:  # ANÁLISIS DE TEXTURA
-                        resultados = ejecutar_analisis(
-                            gdf, None, analisis_tipo, n_divisiones,
-                            cultivo, None, None, None, None
-                        )
-                    
-                    # GUARDAR RESULTADOS EN SESSION STATE
-                    if resultados and resultados['exitoso']:
-                        st.session_state['resultados_guardados'] = {
-                            'gdf_analizado': resultados['gdf_analizado'],
-                            'analisis_tipo': analisis_tipo,
-                            'cultivo': cultivo,
-                            'area_total': resultados['area_total'],
-                            'nutriente': nutriente,
-                            'satelite_seleccionado': satelite_seleccionado,
-                            'indice_seleccionado': indice_seleccionado,
-                            'mapa_buffer': resultados.get('mapa_buffer'),
-                            'X': None,
-                            'Y': None,
-                            'Z': None,
-                            'pendiente_grid': None,
-                            'gdf_original': gdf if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL" else None,
-                            'df_power': resultados.get('df_power')
-                        }
                         
-                        if analisis_tipo == "ANÁLISIS DE TEXTURA":
-                            mostrar_resultados_textura(resultados['gdf_analizado'], cultivo, resultados['area_total'])
-                        elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
-                            X, Y, Z, _ = generar_dem_sintetico(gdf, resolucion_dem)
-                            pendiente_grid = calcular_pendiente_simple(X, Y, Z, resolucion_dem)
-                            curvas, elevaciones = generar_curvas_nivel_simple(X, Y, Z, intervalo_curvas, gdf)
-                            st.session_state['resultados_guardados'].update({
-                                'X': X, 'Y': Y, 'Z': Z, 'pendiente_grid': pendiente_grid
-                            })
-                            mostrar_resultados_curvas_nivel(X, Y, Z, pendiente_grid, curvas, elevaciones, gdf, cultivo, resultados['area_total'])
-                        else:
-                            # Mostrar resultados GEE
-                            gdf_analizado = resultados['gdf_analizado']
-                            col1, col2, col3, col4 = st.columns(4)
-                            with col1:
-                                st.metric("Zonas Analizadas", len(gdf_analizado))
-                            with col2:
-                                st.metric("Área Total", f"{resultados['area_total']:.1f} ha")
-                            with col3:
-                                if analisis_tipo == "FERTILIDAD ACTUAL":
-                                    valor_prom = gdf_analizado['npk_actual'].mean()
-                                    st.metric("Índice NPK Promedio", f"{valor_prom:.3f}")
-                                else:
-                                    valor_prom = gdf_analizado['valor_recomendado'].mean()
-                                    st.metric(f"{nutriente} Promedio", f"{valor_prom:.1f} kg/ha")
-                            with col4:
-                                if analisis_tipo == "FERTILIDAD ACTUAL" and gdf_analizado['npk_actual'].mean() > 0:
-                                    coef_var = (gdf_analizado['npk_actual'].std() / gdf_analizado['npk_actual'].mean() * 100)
-                                    st.metric("Coef. Variación", f"{coef_var:.1f}%")
-                                elif analisis_tipo == "RECOMENDACIONES NPK" and gdf_analizado['valor_recomendado'].mean() > 0:
-                                    coef_var = (gdf_analizado['valor_recomendado'].std() / gdf_analizado['valor_recomendado'].mean() * 100)
-                                    st.metric("Coef. Variación", f"{coef_var:.1f}%")
+                        if resultados_totales['exitoso']:
+                            # Guardar en session state
+                            st.session_state['resultados_guardados'] = {
+                                'gdf_analizado': resultados_totales['gdf_analizado_total'],
+                                'analisis_tipo': analisis_tipo,
+                                'cultivo': cultivo,
+                                'area_total': resultados_totales['area_total_combinada'],
+                                'nutriente': nutriente,
+                                'satelite_seleccionado': satelite_seleccionado,
+                                'indice_seleccionado': indice_seleccionado,
+                                'resultados_totales': resultados_totales,
+                                'mapa_buffer': resultados_totales.get('mapa_buffer_total'),
+                                'df_power': resultados_totales.get('df_power')
+                            }
                             
-                            # === DATOS DE NASA POWER ===
-                            if resultados.get('df_power') is not None:
-                                df_power = resultados['df_power']
-                                st.subheader("🌤️ DATOS METEOROLÓGICOS (NASA POWER)")
-                                col5, col6, col7 = st.columns(3)
-                                with col5:
-                                    st.metric("☀️ Radiación Solar", f"{df_power['radiacion_solar'].mean():.1f} kWh/m²/día")
-                                with col6:
-                                    st.metric("💨 Viento a 2m", f"{df_power['viento_2m'].mean():.2f} m/s")
-                                with col7:
-                                    st.metric("💧 NDWI Promedio", f"{gdf_analizado['ndwi'].mean():.3f}")
-
-                                # === PESTAÑAS CON NUEVA PESTAÑA DE POTENCIAL DE COSECHA ===
-                                tab_radiacion, tab_viento, tab_precip, tab_cosecha = st.tabs([
-                                    "☀️ Radiación Solar",
-                                    "💨 Velocidad del Viento",
-                                    "🌧️ Precipitación",
-                                    "🔥 Potencial de Cosecha"
-                                ])
-
-                                def crear_grafico_personalizado(series, titulo, ylabel, color_linea, fondo_grafico='#f8f9fa', color_texto='#2c3e50'):
-                                    fig, ax = plt.subplots(figsize=(10, 4))
-                                    ax.set_facecolor(fondo_grafico)
-                                    fig.patch.set_facecolor(fondo_grafico)
-                                    ax.plot(series.index, series.values, color=color_linea, linewidth=2.2)
-                                    ax.set_title(titulo, fontsize=14, fontweight='bold', color=color_texto)
-                                    ax.set_ylabel(ylabel, fontsize=12, color=color_texto)
-                                    ax.set_xlabel("Fecha", fontsize=11, color=color_texto)
-                                    ax.tick_params(axis='x', colors=color_texto, rotation=0)
-                                    ax.tick_params(axis='y', colors=color_texto)
-                                    ax.grid(True, color='#cbd5e0', linestyle='--', linewidth=0.7, alpha=0.7)
-                                    for spine in ax.spines.values():
-                                        spine.set_color('#cbd5e0')
-                                    plt.tight_layout()
-                                    return fig
-
-                                def crear_grafico_barras_personalizado(series, titulo, ylabel, color_barra, fondo_grafico='#f8f9fa', color_texto='#2c3e50'):
-                                    fig, ax = plt.subplots(figsize=(10, 4))
-                                    ax.set_facecolor(fondo_grafico)
-                                    fig.patch.set_facecolor(fondo_grafico)
-                                    ax.bar(series.index, series.values, color=color_barra, alpha=0.85)
-                                    ax.set_title(titulo, fontsize=14, fontweight='bold', color=color_texto)
-                                    ax.set_ylabel(ylabel, fontsize=12, color=color_texto)
-                                    ax.set_xlabel("Fecha", fontsize=11, color=color_texto)
-                                    ax.tick_params(axis='x', colors=color_texto, rotation=0)
-                                    ax.tick_params(axis='y', colors=color_texto)
-                                    ax.grid(axis='y', color='#cbd5e0', linestyle='--', linewidth=0.7, alpha=0.7)
-                                    for spine in ax.spines.values():
-                                        spine.set_color('#cbd5e0')
-                                    plt.tight_layout()
-                                    return fig
-
-                                # === PESTAÑA: RADIACIÓN SOLAR ===
-                                with tab_radiacion:
-                                    serie_rad = df_power.set_index('fecha')['radiacion_solar']
-                                    prom_rad = serie_rad.mean()
-                                    max_rad = serie_rad.max()
-                                    min_rad = serie_rad.min()
-                                    if prom_rad > 5.5:
-                                        interpretacion = "☀️ **Alta radiación**: Condiciones óptimas para fotosíntesis en cultivos tropicales."
-                                    elif prom_rad > 4.0:
-                                        interpretacion = "🌤️ **Radiación moderada**: Adecuada para la mayoría de cultivos, con posible limitación en días nublados."
-                                    else:
-                                        interpretacion = "☁️ **Radiación baja**: Puede limitar el crecimiento; vigilar desarrollo vegetativo."
-
-                                    col_r1, col_r2, col_r3 = st.columns(3)
-                                    with col_r1:
-                                        st.metric("Promedio", f"{prom_rad:.1f} kWh/m²/día")
-                                    with col_r2:
-                                        st.metric("Máximo", f"{max_rad:.1f}")
-                                    with col_r3:
-                                        st.metric("Mínimo", f"{min_rad:.1f}")
-
-                                    st.pyplot(crear_grafico_personalizado(
-                                        serie_rad,
-                                        "Evolución Diaria de Radiación Solar",
-                                        "Radiación (kWh/m²/día)",
-                                        color_linea='#e67e22'
-                                    ))
-                                    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
-
-                                # === PESTAÑA: VIENTO ===
-                                with tab_viento:
-                                    serie_viento = df_power.set_index('fecha')['viento_2m']
-                                    prom_viento = serie_viento.mean()
-                                    max_viento = serie_viento.max()
-                                    min_viento = serie_viento.min()
-                                    if prom_viento < 2.0:
-                                        interpretacion = "🍃 **Viento suave**: Bajo riesgo de estrés mecánico o deshidratación."
-                                    elif prom_viento < 4.0:
-                                        interpretacion = "🌬️ **Viento moderado**: Aceptable; monitorear en etapas sensibles (floración, fruto joven)."
-                                    else:
-                                        interpretacion = "💨 **Viento fuerte**: Alto riesgo de daño mecánico, aumento de evapotranspiración y posible caída de frutos."
-
-                                    col_w1, col_w2, col_w3 = st.columns(3)
-                                    with col_w1:
-                                        st.metric("Promedio", f"{prom_viento:.2f} m/s")
-                                    with col_w2:
-                                        st.metric("Máximo", f"{max_viento:.2f}")
-                                    with col_w3:
-                                        st.metric("Mínimo", f"{min_viento:.2f}")
-
-                                    st.pyplot(crear_grafico_personalizado(
-                                        serie_viento,
-                                        "Evolución Diaria de Velocidad del Viento",
-                                        "Viento a 2m (m/s)",
-                                        color_linea='#3498db'
-                                    ))
-                                    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
-
-                                # === PESTAÑA: PRECIPITACIÓN ===
-                                with tab_precip:
-                                    serie_precip = df_power.set_index('fecha')['precipitacion']
-                                    prom_precip = serie_precip.mean()
-                                    total_precip = serie_precip.sum()
-                                    dias_lluvia = (serie_precip > 0.1).sum()
-                                    if prom_precip > 8:
-                                        interpretacion = "🌧️ **Precipitación alta**: Riesgo de encharcamiento y lixiviación de nutrientes. Asegurar drenaje."
-                                    elif prom_precip > 3:
-                                        interpretacion = "💧 **Precipitación adecuada**: Condiciones hídricas favorables para cultivos tropicales."
-                                    else:
-                                        interpretacion = "🏜️ **Precipitación baja**: Posible déficit hídrico; considerar riego suplementario."
-
-                                    col_p1, col_p2, col_p3 = st.columns(3)
-                                    with col_p1:
-                                        st.metric("Total", f"{total_precip:.1f} mm")
-                                    with col_p2:
-                                        st.metric("Promedio", f"{prom_precip:.1f} mm/día")
-                                    with col_p3:
-                                        st.metric("Días con lluvia", f"{dias_lluvia}")
-
-                                    st.pyplot(crear_grafico_barras_personalizado(
-                                        serie_precip,
-                                        "Precipitación Diaria",
-                                        "Precipitación (mm/día)",
-                                        color_barra='#2ecc71'
-                                    ))
-                                    st.markdown(f"**Interpretación agronómica:** {interpretacion}")
-
-                                # === PESTAÑA: POTENCIAL DE COSECHA ===
-                                with tab_cosecha:
-                                    st.subheader("🔥 Análisis de Potencial de Cosecha - Puntos Calientes")
-                                    st.markdown("""
-                                    **Metodología:**
-                                    - Se integran datos de fertilidad (NPK), radiación solar, humedad (NDWI) y estrés por viento
-                                    - Las zonas con valores más altos (rojo/amarillo) son los **puntos calientes** para mejor cosecha
-                                    - Los círculos amarillos marcan zonas con potencial >0.7
-                                    """)
-
-                                    # --- Paso 1: Agregar datos meteorológicos promedio a cada zona ---
-                                    rad_prom = df_power['radiacion_solar'].mean()
-                                    viento_prom = df_power['viento_2m'].mean()
-                                    
-                                    # Asignar los mismos valores promedio a todas las zonas
-                                    gdf_analizado['radiacion_solar'] = rad_prom
-                                    gdf_analizado['viento_2m'] = viento_prom
-
-                                    # --- Paso 2: Normalizar cada variable a [0, 1] ---
-                                    def normalizar_solar(valor):
-                                        return np.clip((valor - 3.0) / (7.0 - 3.0), 0, 1)
-
-                                    def normalizar_viento(valor):
-                                        return np.clip(1 - (valor - 1.0) / (5.0 - 1.0), 0, 1)
-
-                                    def normalizar_humedad(ndwi):
-                                        return np.clip((ndwi - 0.1) / (0.4 - 0.1), 0, 1)
-
-                                    gdf_analizado['solar_norm'] = gdf_analizado['radiacion_solar'].apply(normalizar_solar)
-                                    gdf_analizado['viento_norm'] = gdf_analizado['viento_2m'].apply(normalizar_viento)
-                                    gdf_analizado['humedad_norm'] = gdf_analizado['ndwi'].apply(normalizar_humedad)
-
-                                    # --- Paso 3: Calcular índice integrado ---
-                                    w_fertilidad = 0.40
-                                    w_solar = 0.25
-                                    w_humedad = 0.20
-                                    w_viento = 0.15
-
-                                    gdf_analizado['potencial_cosecha'] = (
-                                        w_fertilidad * gdf_analizado['npk_actual'] +
-                                        w_solar * gdf_analizado['solar_norm'] +
-                                        w_humedad * gdf_analizado['humedad_norm'] +
-                                        w_viento * gdf_analizado['viento_norm']
-                                    ).clip(0, 1)
-
-                                    # Escalar a toneladas/ha según cultivo base
-                                    produccion_base = {
-                                        'PALMA ACEITERA': 20,
-                                        'CACAO': 1.2,
-                                        'BANANO': 35,
-                                        'CAFÉ': 2.5
-                                    }
-                                    base = produccion_base.get(cultivo, 10)
-                                    gdf_analizado['produccion_estimada'] = gdf_analizado['potencial_cosecha'] * base
-
-                                    # --- Paso 4: Mostrar métricas resumen ---
-                                    col_c1, col_c2, col_c3, col_c4 = st.columns(4)
-                                    with col_c1:
-                                        st.metric("Potencial Promedio", f"{gdf_analizado['potencial_cosecha'].mean():.2f}")
-                                    with col_c2:
-                                        st.metric("Máximo", f"{gdf_analizado['potencial_cosecha'].max():.2f}")
-                                    with col_c3:
-                                        st.metric("Producción Estimada", f"{gdf_analizado['produccion_estimada'].mean():.1f} t/ha")
-                                    with col_c4:
-                                        total_est = (gdf_analizado['produccion_estimada'] * gdf_analizado['area_ha']).sum()
-                                        st.metric("Total Parcela", f"{total_est:.1f} t")
-
-                                    # --- Paso 5: Crear mapa de calor con ESRI ---
-                                    mapa_calor = crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo)
-                                    if mapa_calor:
-                                        st.image(mapa_calor, use_container_width=True)
-                                        st.download_button(
-                                            "📥 Descargar Mapa de Calor",
-                                            mapa_calor,
-                                            f"potencial_cosecha_calor_{cultivo}_{datetime.now().strftime('%Y%m%d')}.png",
-                                            "image/png"
-                                        )
-
-                                    # --- Paso 6: Identificar puntos calientes ---
-                                    zonas_calientes = gdf_analizado[gdf_analizado['potencial_cosecha'] > 0.7]
-                                    if not zonas_calientes.empty:
-                                        st.subheader("📍 ZONAS CALIENTES (Potencial > 0.7)")
-                                        st.dataframe(zonas_calientes[['id_zona', 'area_ha', 'potencial_cosecha', 'produccion_estimada']].sort_values('potencial_cosecha', ascending=False))
-                                        
-                                        total_area_caliente = zonas_calientes['area_ha'].sum()
-                                        st.metric(f"Área total de zonas calientes", f"{total_area_caliente:.2f} ha")
-                                        
-                                        st.markdown("**Recomendaciones para zonas calientes:**")
-                                        st.markdown("""
-                                        - ✅ **Maximizar inversión** en estas zonas (fertilización, riego)
-                                        - ✅ **Priorizar cosecha** temprana en estas áreas
-                                        - ✅ **Monitoreo intensivo** para mantener altos rendimientos
-                                        """)
-
-                            # Crear mapa estático con ESRI para análisis GEE
-                            if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
-                                columna_valor = 'valor_recomendado' if analisis_tipo == "RECOMENDACIONES NPK" else 'npk_actual'
-                                mapa_buffer = crear_mapa_estatico_con_esri(gdf_analizado, 
-                                                                          f"ANÁLISIS {analisis_tipo}", 
-                                                                          columna_valor, 
-                                                                          analisis_tipo, 
-                                                                          nutriente, 
-                                                                          cultivo, 
-                                                                          satelite_seleccionado)
-                                if mapa_buffer:
-                                    st.subheader(f"🗺️ MAPA CON ESRI SATELLITE - {analisis_tipo}")
-                                    st.image(mapa_buffer, use_container_width=True)
-                                    st.session_state['resultados_guardados']['mapa_buffer'] = mapa_buffer
-                                    st.download_button(
-                                        "📥 Descargar Mapa GEE con ESRI",
-                                        mapa_buffer,
-                                        f"mapa_gee_esri_{cultivo}_{satelite_seleccionado}_{analisis_tipo.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.png",
-                                        "image/png"
-                                    )
-                                
-                                st.subheader("🔬 ÍNDICES SATELITALES GEE POR ZONA")
-                                columnas_indices = ['id_zona', 'npk_actual', 'materia_organica', 'ndvi', 'ndre', 'humedad_suelo', 'ndwi']
-                                if analisis_tipo == "RECOMENDACIONES NPK":
-                                    columnas_indices = ['id_zona', 'valor_recomendado', 'npk_actual', 'materia_organica', 'ndvi', 'ndre', 'humedad_suelo', 'ndwi']
-                                columnas_indices = [col for col in columnas_indices if col in gdf_analizado.columns]
-                                tabla_indices = gdf_analizado[columnas_indices].copy()
-                                rename_dict = {
-                                    'id_zona': 'Zona',
-                                    'npk_actual': 'NPK Actual',
-                                    'valor_recomendado': 'Recomendación',
-                                    'materia_organica': 'Materia Org (%)',
-                                    'ndvi': 'NDVI',
-                                    'ndre': 'NDRE',
-                                    'humedad_suelo': 'Humedad',
-                                    'ndwi': 'NDWI'
-                                }
-                                tabla_indices = tabla_indices.rename(columns={k: v for k, v in rename_dict.items() if k in tabla_indices.columns})
-                                st.dataframe(tabla_indices)
+                            # Mostrar resultados combinados
+                            mostrar_resultados_combinados(
+                                resultados_totales,
+                                cultivo,
+                                analisis_tipo,
+                                nutriente
+                            )
+                        else:
+                            st.error("❌ Error al analizar los polígonos")
+                            
         except Exception as e:
             st.error(f"❌ Error procesando archivo: {str(e)}")
             import traceback
