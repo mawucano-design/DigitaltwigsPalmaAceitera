@@ -752,6 +752,18 @@ with st.sidebar:
     st.subheader("📤 Subir Parcela")
     uploaded_file = st.file_uploader("Subir archivo de tu parcela", type=['zip', 'kml', 'kmz'],
                                      help="Formatos aceptados: Shapefile (.zip), KML (.kml), KMZ (.kmz)")
+    
+    # Opción para unir polígonos múltiples
+    if uploaded_file:
+        st.subheader("🔄 Opciones de Procesamiento")
+        unir_poligonos = st.checkbox(
+            "Unir múltiples polígonos en uno solo", 
+            value=True,
+            help="Si el archivo contiene múltiples polígonos, únelos para un análisis unificado"
+        )
+        
+        # Guardar en session state para usarlo después
+        st.session_state['unir_poligonos'] = unir_poligonos
 
 # ===== FUNCIONES AUXILIARES - CORREGIDAS PARA EPSG:4326 =====
 def validar_y_corregir_crs(gdf):
@@ -768,6 +780,46 @@ def validar_y_corregir_crs(gdf):
         return gdf
     except Exception as e:
         st.warning(f"⚠️ Error al corregir CRS: {str(e)}")
+        return gdf
+
+def unir_poligonos_multiples(gdf):
+    """
+    Une múltiples polígonos en un solo polígono (unión).
+    Si hay MultiPolygons, los convierte a un solo polígono usando convex hull.
+    """
+    if gdf is None or len(gdf) == 0:
+        return gdf
+    
+    try:
+        # Si ya hay solo un polígono, retornar tal cual
+        if len(gdf) == 1:
+            return gdf
+        
+        st.info(f"📊 Detectados {len(gdf)} polígonos. Uniendo en uno solo para análisis unificado...")
+        
+        # Crear una unión de todos los polígonos
+        union_geom = gdf.geometry.unary_union
+        
+        # Si la unión es un MultiPolygon, crear un convex hull para unirlo
+        if union_geom.geom_type == 'MultiPolygon':
+            st.warning("⚠️ Unión resultó en múltiples polígonos. Usando envolvente convexa para unirlos.")
+            union_geom = union_geom.convex_hull
+        
+        # Crear un nuevo GeoDataFrame con el polígono unido
+        gdf_unido = gpd.GeoDataFrame(
+            {'id_zona': [1], 'geometry': [union_geom]}, 
+            crs=gdf.crs
+        )
+        
+        # Calcular área total
+        area_total = calcular_superficie(gdf_unido)
+        st.success(f"✅ Polígonos unidos exitosamente. Área total: {area_total:.2f} ha")
+        
+        return gdf_unido
+    
+    except Exception as e:
+        st.error(f"❌ Error uniendo polígonos: {str(e)}")
+        # En caso de error, retornar el original
         return gdf
 
 def calcular_superficie(gdf):
@@ -793,31 +845,77 @@ def calcular_superficie(gdf):
 def dividir_parcela_en_zonas(gdf, n_zonas):
     if len(gdf) == 0:
         return gdf
+    
     gdf = validar_y_corregir_crs(gdf)
+    
+    # Tomar el primer polígono (ya debería estar unido)
     parcela_principal = gdf.iloc[0].geometry
+    
+    # Simplificar geometría si es muy compleja
+    if parcela_principal.geom_type == 'MultiPolygon':
+        # Tomar el polígono más grande del MultiPolygon
+        areas = [poly.area for poly in parcela_principal.geoms]
+        idx_max = areas.index(max(areas))
+        parcela_principal = parcela_principal.geoms[idx_max]
+    
     bounds = parcela_principal.bounds
     minx, miny, maxx, maxy = bounds
+    
+    # Asegurar que las coordenadas son válidas
+    if not all([math.isfinite(coord) for coord in bounds]):
+        st.error("❌ Coordenadas inválidas en la parcela")
+        return gdf
+    
     sub_poligonos = []
     n_cols = math.ceil(math.sqrt(n_zonas))
     n_rows = math.ceil(n_zonas / n_cols)
+    
+    # Tamaño de cada celda
     width = (maxx - minx) / n_cols
     height = (maxy - miny) / n_rows
+    
     for i in range(n_rows):
         for j in range(n_cols):
             if len(sub_poligonos) >= n_zonas:
                 break
+            
+            # Crear celda
             cell_minx = minx + (j * width)
             cell_maxx = minx + ((j + 1) * width)
             cell_miny = miny + (i * height)
             cell_maxy = miny + ((i + 1) * height)
-            cell_poly = Polygon([(cell_minx, cell_miny), (cell_maxx, cell_miny), (cell_maxx, cell_maxy), (cell_minx, cell_maxy)])
-            intersection = parcela_principal.intersection(cell_poly)
-            if not intersection.is_empty and intersection.area > 0:
-                sub_poligonos.append(intersection)
+            
+            cell_poly = Polygon([
+                (cell_minx, cell_miny),
+                (cell_maxx, cell_miny),
+                (cell_maxx, cell_maxy),
+                (cell_minx, cell_maxy),
+                (cell_minx, cell_miny)  # Cerrar el polígono
+            ])
+            
+            # Calcular intersección con la parcela principal
+            if parcela_principal.intersects(cell_poly):
+                intersection = parcela_principal.intersection(cell_poly)
+                
+                if not intersection.is_empty and intersection.area > 0:
+                    # Asegurar que sea un Polygon (puede ser MultiPolygon)
+                    if intersection.geom_type == 'Polygon':
+                        sub_poligonos.append(intersection)
+                    elif intersection.geom_type == 'MultiPolygon':
+                        # Tomar el polígono más grande de la intersección
+                        areas = [poly.area for poly in intersection.geoms]
+                        idx_max = areas.index(max(areas))
+                        sub_poligonos.append(intersection.geoms[idx_max])
+    
     if sub_poligonos:
-        nuevo_gdf = gpd.GeoDataFrame({'id_zona': range(1, len(sub_poligonos) + 1), 'geometry': sub_poligonos}, crs='EPSG:4326')
+        nuevo_gdf = gpd.GeoDataFrame(
+            {'id_zona': range(1, len(sub_poligonos) + 1), 
+             'geometry': sub_poligonos},
+            crs='EPSG:4326'
+        )
         return nuevo_gdf
     else:
+        st.warning("⚠️ No se pudieron crear zonas. Usando parcela original.")
         return gdf
 
 # ===== FUNCIONES PARA CARGAR ARCHIVOS =====
@@ -844,38 +942,63 @@ def parsear_kml_manual(contenido_kml):
         root = ET.fromstring(contenido_kml)
         namespaces = {'kml': 'http://www.opengis.net/kml/2.2'}
         polygons = []
+        
+        # Buscar todos los polígonos en el KML
         for polygon_elem in root.findall('.//kml:Polygon', namespaces):
             coords_elem = polygon_elem.find('.//kml:coordinates', namespaces)
             if coords_elem is not None and coords_elem.text:
                 coord_text = coords_elem.text.strip()
                 coord_list = []
+                
                 for coord_pair in coord_text.split():
                     parts = coord_pair.split(',')
                     if len(parts) >= 2:
-                        lon = float(parts[0])
-                        lat = float(parts[1])
-                        coord_list.append((lon, lat))
-                if len(coord_list) >= 3:
-                    polygons.append(Polygon(coord_list))
-        if not polygons:
-            for multi_geom in root.findall('.//kml:MultiGeometry', namespaces):
-                for polygon_elem in multi_geom.findall('.//kml:Polygon', namespaces):
-                    coords_elem = polygon_elem.find('.//kml:coordinates', namespaces)
-                    if coords_elem is not None and coords_elem.text:
-                        coord_text = coords_elem.text.strip()
-                        coord_list = []
-                        for coord_pair in coord_text.split():
-                            parts = coord_pair.split(',')
-                            if len(parts) >= 2:
-                                lon = float(parts[0])
-                                lat = float(parts[1])
+                        try:
+                            lon = float(parts[0].strip())
+                            lat = float(parts[1].strip())
+                            # Filtrar coordenadas inválidas
+                            if -180 <= lon <= 180 and -90 <= lat <= 90:
                                 coord_list.append((lon, lat))
-                        if len(coord_list) >= 3:
-                            polygons.append(Polygon(coord_list))
-        if polygons:
-            gdf = gpd.GeoDataFrame({'geometry': polygons}, crs='EPSG:4326')
-            return gdf
-        else:
+                        except ValueError:
+                            continue
+                
+                if len(coord_list) >= 3:
+                    try:
+                        polygon = Polygon(coord_list)
+                        if polygon.is_valid and polygon.area > 0:
+                            polygons.append(polygon)
+                    except Exception:
+                        continue
+        
+        # También buscar en MultiGeometry
+        for multi_geom in root.findall('.//kml:MultiGeometry', namespaces):
+            for polygon_elem in multi_geom.findall('.//kml:Polygon', namespaces):
+                coords_elem = polygon_elem.find('.//kml:coordinates', namespaces)
+                if coords_elem is not None and coords_elem.text:
+                    coord_text = coords_elem.text.strip()
+                    coord_list = []
+                    
+                    for coord_pair in coord_text.split():
+                        parts = coord_pair.split(',')
+                        if len(parts) >= 2:
+                            try:
+                                lon = float(parts[0].strip())
+                                lat = float(parts[1].strip())
+                                if -180 <= lon <= 180 and -90 <= lat <= 90:
+                                    coord_list.append((lon, lat))
+                            except ValueError:
+                                continue
+                    
+                    if len(coord_list) >= 3:
+                        try:
+                            polygon = Polygon(coord_list)
+                            if polygon.is_valid and polygon.area > 0:
+                                polygons.append(polygon)
+                        except Exception:
+                            continue
+        
+        # Si no encontramos polígonos, buscar en Placemarks
+        if not polygons:
             for placemark in root.findall('.//kml:Placemark', namespaces):
                 for elem_name in ['Polygon', 'LineString', 'Point', 'LinearRing']:
                     elem = placemark.find(f'.//kml:{elem_name}', namespaces)
@@ -884,19 +1007,34 @@ def parsear_kml_manual(contenido_kml):
                         if coords_elem is not None and coords_elem.text:
                             coord_text = coords_elem.text.strip()
                             coord_list = []
+                            
                             for coord_pair in coord_text.split():
                                 parts = coord_pair.split(',')
                                 if len(parts) >= 2:
-                                    lon = float(parts[0])
-                                    lat = float(parts[1])
-                                    coord_list.append((lon, lat))
+                                    try:
+                                        lon = float(parts[0].strip())
+                                        lat = float(parts[1].strip())
+                                        if -180 <= lon <= 180 and -90 <= lat <= 90:
+                                            coord_list.append((lon, lat))
+                                    except ValueError:
+                                        continue
+                            
                             if len(coord_list) >= 3:
-                                polygons.append(Polygon(coord_list))
-                            break
+                                try:
+                                    polygon = Polygon(coord_list)
+                                    if polygon.is_valid and polygon.area > 0:
+                                        polygons.append(polygon)
+                                except Exception:
+                                    continue
+        
         if polygons:
+            # Crear GeoDataFrame con todos los polígonos
             gdf = gpd.GeoDataFrame({'geometry': polygons}, crs='EPSG:4326')
             return gdf
-        return None
+        else:
+            st.warning("⚠️ No se encontraron polígonos válidos en el KML")
+            return None
+    
     except Exception as e:
         st.error(f"❌ Error parseando KML manualmente: {str(e)}")
         return None
@@ -949,21 +1087,41 @@ def cargar_archivo_parcela(uploaded_file):
         else:
             st.error("❌ Formato de archivo no soportado")
             return None
+        
         if gdf is not None:
             gdf = validar_y_corregir_crs(gdf)
+            
             if not gdf.geometry.geom_type.str.contains('Polygon').any():
                 st.warning("⚠️ El archivo no contiene polígonos. Intentando extraer polígonos...")
                 gdf = gdf.explode()
                 gdf = gdf[gdf.geometry.geom_type.isin(['Polygon', 'MultiPolygon'])]
+                
                 if len(gdf) > 0:
+                    # UNIR POLÍGONOS MÚLTIPLES si está activada la opción
+                    unir_poligonos = st.session_state.get('unir_poligonos', True)
+                    if unir_poligonos and len(gdf) > 1:
+                        gdf = unir_poligonos_multiples(gdf)
+                    
                     if 'id_zona' not in gdf.columns:
                         gdf['id_zona'] = range(1, len(gdf) + 1)
+                    
                     if str(gdf.crs).upper() != 'EPSG:4326':
                         st.warning(f"⚠️ El archivo no pudo ser convertido a EPSG:4326. CRS actual: {gdf.crs}")
                     return gdf
                 else:
                     st.error("❌ No se encontraron polígonos en el archivo")
                     return None
+            else:
+                # UNIR POLÍGONOS MÚLTIPLES incluso si ya son polígonos
+                unir_poligonos = st.session_state.get('unir_poligonos', True)
+                if unir_poligonos and len(gdf) > 1:
+                    gdf = unir_poligonos_multiples(gdf)
+                else:
+                    # Si solo hay uno, asegurar id_zona
+                    if 'id_zona' not in gdf.columns:
+                        gdf['id_zona'] = [1]
+                
+                return gdf
         return gdf
     except Exception as e:
         st.error(f"❌ Error cargando archivo: {str(e)}")
@@ -1092,8 +1250,7 @@ def calcular_indices_satelitales_gee(gdf, cultivo, datos_satelitales):
         base_humedad = params['HUMEDAD_OPTIMA'] * 0.8
         variabilidad_humedad = patron_espacial * (params['HUMEDAD_OPTIMA'] * 0.4)
         humedad_suelo = base_humedad + variabilidad_humedad + np.random.normal(0, 0.05)
-        humedad_suelo = max(0.1, min(0.8, humedad_suelo)
-)
+        humedad_suelo = max(0.1, min(0.8, humedad_suelo))
         ndvi_base = valor_base_satelital * 0.8
         ndvi_variacion = patron_espacial * (valor_base_satelital * 0.4)
         ndvi = ndvi_base + ndvi_variacion + np.random.normal(0, 0.06)
@@ -2506,7 +2663,7 @@ if uploaded_file:
                                     max_viento = serie_viento.max()
                                     min_viento = serie_viento.min()
                                     if prom_viento < 2.0:
-                                        interpretacion = "🍃 **Viento suave**: Bajo riesgo de estrés mecánico o deshidratación."
+                                        interpretacion = "🍃 **Viento suave**: Bajo riesgo de estrés mecánico o deshidratación.")
                                     elif prom_viento < 4.0:
                                         interpretacion = "🌬️ **Viento moderado**: Aceptable; monitorear en etapas sensibles (floración, fruto joven)."
                                     else:
