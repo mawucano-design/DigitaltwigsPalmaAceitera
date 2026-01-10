@@ -805,20 +805,19 @@ def dividir_parcela_en_zonas(gdf, n_zonas):
         return gdf
     gdf = validar_y_corregir_crs(gdf)
     
-    # Si hay múltiples polígonos, los combinamos en uno solo
+    # Ya deberíamos tener un solo polígono (después de la unificación)
     if len(gdf) > 1:
-        st.info(f"📋 KML contiene {len(gdf)} polígonos. Uniendo en una sola parcela...")
-        parcela_principal = gdf.geometry.unary_union
-        
-        # Asegurarse de que sea un polígono (puede ser MultiPolygon)
-        if parcela_principal.geom_type == 'MultiPolygon':
-            # Tomar el polígono más grande o crear convex hull
-            polygons = list(parcela_principal.geoms)
-            polygons.sort(key=lambda x: x.area, reverse=True)
-            parcela_principal = polygons[0]
-            st.info(f"Se seleccionó el polígono más grande de {len(polygons)} polígonos.")
+        st.warning(f"⚠️ La parcela tiene {len(gdf)} polígonos. Tomando el primero para dividir en zonas.")
+        parcela_principal = gdf.iloc[0].geometry
     else:
         parcela_principal = gdf.iloc[0].geometry
+    
+    # Si es MultiPolygon, tomar el más grande
+    if parcela_principal.geom_type == 'MultiPolygon':
+        polygons = list(parcela_principal.geoms)
+        polygons.sort(key=lambda x: x.area, reverse=True)
+        parcela_principal = polygons[0]
+        st.info(f"Se seleccionó el polígono más grande de {len(polygons)} polígonos.")
     
     bounds = parcela_principal.bounds
     minx, miny, maxx, maxy = bounds
@@ -997,22 +996,78 @@ def cargar_archivo_parcela(uploaded_file):
         else:
             st.error("❌ Formato de archivo no soportado")
             return None
+        
         if gdf is not None:
             gdf = validar_y_corregir_crs(gdf)
+            
+            # Extraer todos los polígonos del archivo
             if not gdf.geometry.geom_type.str.contains('Polygon').any():
                 st.warning("⚠️ El archivo no contiene polígonos. Intentando extraer polígonos...")
                 gdf = gdf.explode()
                 gdf = gdf[gdf.geometry.geom_type.isin(['Polygon', 'MultiPolygon'])]
-                if len(gdf) > 0:
-                    if 'id_zona' not in gdf.columns:
-                        gdf['id_zona'] = range(1, len(gdf) + 1)
-                    if str(gdf.crs).upper() != 'EPSG:4326':
-                        st.warning(f"⚠️ El archivo no pudo ser convertido a EPSG:4326. CRS actual: {gdf.crs}")
-                    return gdf
-                else:
-                    st.error("❌ No se encontraron polígonos en el archivo")
-                    return None
-        return gdf
+            
+            if len(gdf) == 0:
+                st.error("❌ No se encontraron polígonos en el archivo")
+                return None
+            
+            # Si hay múltiples polígonos, unirlos en uno solo
+            if len(gdf) > 1:
+                st.info(f"📋 Se encontraron {len(gdf)} polígonos. Uniendo en un solo polígono...")
+                
+                # Unir todos los polígonos
+                try:
+                    # Obtener todos los polígonos individuales
+                    all_polygons = []
+                    for geom in gdf.geometry:
+                        if geom.geom_type == 'Polygon':
+                            all_polygons.append(geom)
+                        elif geom.geom_type == 'MultiPolygon':
+                            all_polygons.extend(list(geom.geoms))
+                    
+                    if all_polygons:
+                        # Crear unión de todos los polígonos
+                        united_geom = gpd.GeoSeries(all_polygons).unary_union
+                        
+                        # Si la unión resulta en un MultiPolygon, tomar el polígono más grande
+                        if united_geom.geom_type == 'MultiPolygon':
+                            polygons = list(united_geom.geoms)
+                            # Ordenar por área (de mayor a menor)
+                            polygons.sort(key=lambda x: x.area, reverse=True)
+                            # Tomar el polígono más grande
+                            main_polygon = polygons[0]
+                            st.info(f"Se seleccionó el polígono más grande de {len(polygons)} polígonos.")
+                        else:
+                            main_polygon = united_geom
+                        
+                        # Crear un nuevo GeoDataFrame con un solo polígono
+                        gdf = gpd.GeoDataFrame(
+                            {'geometry': [main_polygon], 'id_zona': [1]},
+                            crs='EPSG:4326'
+                        )
+                        st.success(f"✅ Polígonos unidos en una sola parcela de {calcular_superficie(gdf):.2f} ha")
+                    else:
+                        st.error("❌ No se pudieron extraer polígonos válidos")
+                        return None
+                        
+                except Exception as e:
+                    st.error(f"❌ Error al unir polígonos: {str(e)}")
+                    # Si falla la unión, usar el primer polígono
+                    gdf = gpd.GeoDataFrame(
+                        {'geometry': [gdf.iloc[0].geometry], 'id_zona': [1]},
+                        crs='EPSG:4326'
+                    )
+                    st.warning("⚠️ Se usó el primer polígono del archivo")
+            else:
+                # Si solo hay un polígono, asegurarse de que tenga id_zona
+                if 'id_zona' not in gdf.columns:
+                    gdf['id_zona'] = 1
+            
+            # Verificar CRS final
+            if str(gdf.crs).upper() != 'EPSG:4326':
+                st.warning(f"⚠️ CRS final: {gdf.crs}. Se recomienda EPSG:4326.")
+            
+            return gdf
+            
     except Exception as e:
         st.error(f"❌ Error cargando archivo: {str(e)}")
         import traceback
@@ -2219,9 +2274,48 @@ def analizar_todos_poligonos(gdf_total, nutriente, analisis_tipo, n_divisiones, 
     
     try:
         gdf_total = validar_y_corregir_crs(gdf_total)
+        
+        # Ya deberíamos tener un solo polígono (después de la unificación)
+        if len(gdf_total) == 0:
+            st.error("❌ No hay polígonos para analizar")
+            return resultados_totales
+        
+        # Para simplificar, si solo hay un polígono, analizarlo directamente
+        if len(gdf_total) == 1:
+            resultados_totales['poligonos_procesados'] = 1
+            resultados_totales['area_total_combinada'] = calcular_superficie(gdf_total)
+            
+            # Ejecutar análisis para el único polígono
+            resultados_poligono = ejecutar_analisis(
+                gdf_total, nutriente, analisis_tipo, n_divisiones,
+                cultivo, satelite, indice, fecha_inicio, fecha_fin,
+                intervalo_curvas, resolucion_dem
+            )
+            
+            if resultados_poligono and resultados_poligono['exitoso']:
+                gdf_analizado = resultados_poligono['gdf_analizado']
+                if gdf_analizado is not None and not gdf_analizado.empty:
+                    # Agregar información del polígono
+                    gdf_analizado['id_poligono'] = 1
+                    gdf_analizado['id_zona_compuesto'] = [
+                        f"1.{zona_id}" for zona_id in gdf_analizado['id_zona']
+                    ]
+                    
+                    resultados_totales.update({
+                        'exitoso': True,
+                        'gdf_analizado_total': gdf_analizado,
+                        'area_total_combinada': resultados_poligono['area_total'],
+                        'df_power': resultados_poligono.get('df_power')
+                    })
+            
+            return resultados_totales
+        
+        # Si hay múltiples polígonos (no debería pasar después de la unificación)
+        # Mantenemos el código original por si acaso
+        st.warning("⚠️ Se encontraron múltiples polígonos. Analizando cada uno por separado...")
+        
         resultados_por_poligono = []
         
-        # Si el archivo ya tiene ID de zona, usarlo; si no, crearlo
         if 'id_zona' not in gdf_total.columns:
             gdf_total['id_zona'] = range(1, len(gdf_total) + 1)
         
@@ -2315,7 +2409,7 @@ def mostrar_resultados_combinados(resultados_totales, cultivo, analisis_tipo, nu
     area_total = resultados_totales['area_total_combinada']
     poligonos_procesados = resultados_totales['poligonos_procesados']
     
-    st.success(f"✅ **ANÁLISIS COMPLETADO:** {poligonos_procesados} polígonos procesados, {len(gdf_combinado)} zonas totales")
+    st.success(f"✅ **ANÁLISIS COMPLETADO:** {poligonos_procesados} polígono(s) procesado(s), {len(gdf_combinado)} zonas totales")
     
     # Mostrar resumen general
     col1, col2, col3, col4 = st.columns(4)
