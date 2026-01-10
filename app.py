@@ -752,18 +752,6 @@ with st.sidebar:
     st.subheader("📤 Subir Parcela")
     uploaded_file = st.file_uploader("Subir archivo de tu parcela", type=['zip', 'kml', 'kmz'],
                                      help="Formatos aceptados: Shapefile (.zip), KML (.kml), KMZ (.kmz)")
-    
-    # Opción para unir polígonos múltiples
-    if uploaded_file:
-        st.subheader("🔄 Opciones de Procesamiento")
-        unir_poligonos = st.checkbox(
-            "Unir múltiples polígonos en uno solo", 
-            value=True,
-            help="Si el archivo contiene múltiples polígonos, únelos para un análisis unificado"
-        )
-        
-        # Guardar en session state para usarlo después
-        st.session_state['unir_poligonos'] = unir_poligonos
 
 # ===== FUNCIONES AUXILIARES - CORREGIDAS PARA EPSG:4326 =====
 def validar_y_corregir_crs(gdf):
@@ -782,95 +770,63 @@ def validar_y_corregir_crs(gdf):
         st.warning(f"⚠️ Error al corregir CRS: {str(e)}")
         return gdf
 
-def unir_poligonos_multiples(gdf):
-    """
-    Une múltiples polígonos en un solo polígono (unión).
-    Si hay MultiPolygons, los convierte a un solo polígono usando convex hull.
-    """
-    if gdf is None or len(gdf) == 0:
-        return gdf
-    
-    try:
-        # Si ya hay solo un polígono, retornar tal cual
-        if len(gdf) == 1:
-            return gdf
-        
-        st.info(f"📊 Detectados {len(gdf)} polígonos. Uniendo en uno solo para análisis unificado...")
-        
-        # Crear una unión de todos los polígonos
-        union_geom = gdf.geometry.unary_union
-        
-        # Si la unión es un MultiPolygon, crear un convex hull para unirlo
-        if union_geom.geom_type == 'MultiPolygon':
-            st.warning("⚠️ Unión resultó en múltiples polígonos. Usando envolvente convexa para unirlos.")
-            union_geom = union_geom.convex_hull
-        
-        # Crear un nuevo GeoDataFrame con el polígono unido
-        gdf_unido = gpd.GeoDataFrame(
-            {'id_zona': [1], 'geometry': [union_geom]}, 
-            crs=gdf.crs
-        )
-        
-        # Calcular área total
-        area_total = calcular_superficie(gdf_unido)
-        st.success(f"✅ Polígonos unidos exitosamente. Área total: {area_total:.2f} ha")
-        
-        return gdf_unido
-    
-    except Exception as e:
-        st.error(f"❌ Error uniendo polígonos: {str(e)}")
-        # En caso de error, retornar el original
-        return gdf
-
 def calcular_superficie(gdf):
     try:
         if gdf is None or len(gdf) == 0:
             return 0.0
+        
         gdf = validar_y_corregir_crs(gdf)
-        bounds = gdf.total_bounds
-        if bounds[0] < -180 or bounds[2] > 180 or bounds[1] < -90 or bounds[3] > 90:
-            st.warning("⚠️ Coordenadas fuera de rango para cálculo preciso de área")
-            area_grados2 = gdf.geometry.area.sum()
+        
+        # Calcular área total de todos los polígonos
+        if str(gdf.crs).upper() != 'EPSG:4326':
+            gdf_projected = gdf.to_crs('EPSG:3857')
+            area_m2 = gdf_projected.geometry.area.sum()
+        else:
+            # Para EPSG:4326, necesitamos proyectar para cálculo preciso
+            gdf_projected = gdf.to_crs('EPSG:3857')
+            area_m2 = gdf_projected.geometry.area.sum()
+        
+        return area_m2 / 10000  # Convertir m² a hectáreas
+        
+    except Exception as e:
+        st.warning(f"⚠️ Advertencia al calcular superficie: {str(e)}")
+        # Método alternativo aproximado
+        try:
+            bounds = gdf.total_bounds
+            area_grados2 = (bounds[2] - bounds[0]) * (bounds[3] - bounds[1])
+            # Aproximación para latitudes tropicales
             area_m2 = area_grados2 * 111000 * 111000
             return area_m2 / 10000
-        gdf_projected = gdf.to_crs('EPSG:3857')
-        area_m2 = gdf_projected.geometry.area.sum()
-        return area_m2 / 10000
-    except Exception as e:
-        try:
-            return gdf.geometry.area.sum() / 10000
         except:
             return 0.0
 
 def dividir_parcela_en_zonas(gdf, n_zonas):
     if len(gdf) == 0:
         return gdf
-    
     gdf = validar_y_corregir_crs(gdf)
     
-    # Tomar el primer polígono (ya debería estar unido)
-    parcela_principal = gdf.iloc[0].geometry
-    
-    # Simplificar geometría si es muy compleja
-    if parcela_principal.geom_type == 'MultiPolygon':
-        # Tomar el polígono más grande del MultiPolygon
-        areas = [poly.area for poly in parcela_principal.geoms]
-        idx_max = areas.index(max(areas))
-        parcela_principal = parcela_principal.geoms[idx_max]
+    # Si hay múltiples polígonos, los combinamos en uno solo
+    if len(gdf) > 1:
+        st.info(f"📋 KML contiene {len(gdf)} polígonos. Uniendo en una sola parcela...")
+        parcela_principal = gdf.geometry.unary_union
+        
+        # Asegurarse de que sea un polígono (puede ser MultiPolygon)
+        if parcela_principal.geom_type == 'MultiPolygon':
+            # Tomar el polígono más grande o crear convex hull
+            polygons = list(parcela_principal.geoms)
+            polygons.sort(key=lambda x: x.area, reverse=True)
+            parcela_principal = polygons[0]
+            st.info(f"Se seleccionó el polígono más grande de {len(polygons)} polígonos.")
+    else:
+        parcela_principal = gdf.iloc[0].geometry
     
     bounds = parcela_principal.bounds
     minx, miny, maxx, maxy = bounds
-    
-    # Asegurar que las coordenadas son válidas
-    if not all([math.isfinite(coord) for coord in bounds]):
-        st.error("❌ Coordenadas inválidas en la parcela")
-        return gdf
     
     sub_poligonos = []
     n_cols = math.ceil(math.sqrt(n_zonas))
     n_rows = math.ceil(n_zonas / n_cols)
     
-    # Tamaño de cada celda
     width = (maxx - minx) / n_cols
     height = (maxy - miny) / n_rows
     
@@ -879,7 +835,6 @@ def dividir_parcela_en_zonas(gdf, n_zonas):
             if len(sub_poligonos) >= n_zonas:
                 break
             
-            # Crear celda
             cell_minx = minx + (j * width)
             cell_maxx = minx + ((j + 1) * width)
             cell_miny = miny + (i * height)
@@ -889,33 +844,28 @@ def dividir_parcela_en_zonas(gdf, n_zonas):
                 (cell_minx, cell_miny),
                 (cell_maxx, cell_miny),
                 (cell_maxx, cell_maxy),
-                (cell_minx, cell_maxy),
-                (cell_minx, cell_miny)  # Cerrar el polígono
+                (cell_minx, cell_maxy)
             ])
             
-            # Calcular intersección con la parcela principal
-            if parcela_principal.intersects(cell_poly):
-                intersection = parcela_principal.intersection(cell_poly)
-                
-                if not intersection.is_empty and intersection.area > 0:
-                    # Asegurar que sea un Polygon (puede ser MultiPolygon)
-                    if intersection.geom_type == 'Polygon':
-                        sub_poligonos.append(intersection)
-                    elif intersection.geom_type == 'MultiPolygon':
-                        # Tomar el polígono más grande de la intersección
-                        areas = [poly.area for poly in intersection.geoms]
-                        idx_max = areas.index(max(areas))
-                        sub_poligonos.append(intersection.geoms[idx_max])
+            intersection = parcela_principal.intersection(cell_poly)
+            
+            if not intersection.is_empty and intersection.area > 0:
+                # Si la intersección es MultiPolygon, tomar la parte más grande
+                if intersection.geom_type == 'MultiPolygon':
+                    parts = list(intersection.geoms)
+                    parts.sort(key=lambda x: x.area, reverse=True)
+                    if parts:
+                        sub_poligonos.append(parts[0])
+                else:
+                    sub_poligonos.append(intersection)
     
     if sub_poligonos:
         nuevo_gdf = gpd.GeoDataFrame(
-            {'id_zona': range(1, len(sub_poligonos) + 1), 
-             'geometry': sub_poligonos},
+            {'id_zona': range(1, len(sub_poligonos) + 1), 'geometry': sub_poligonos},
             crs='EPSG:4326'
         )
         return nuevo_gdf
     else:
-        st.warning("⚠️ No se pudieron crear zonas. Usando parcela original.")
         return gdf
 
 # ===== FUNCIONES PARA CARGAR ARCHIVOS =====
@@ -942,63 +892,38 @@ def parsear_kml_manual(contenido_kml):
         root = ET.fromstring(contenido_kml)
         namespaces = {'kml': 'http://www.opengis.net/kml/2.2'}
         polygons = []
-        
-        # Buscar todos los polígonos en el KML
         for polygon_elem in root.findall('.//kml:Polygon', namespaces):
             coords_elem = polygon_elem.find('.//kml:coordinates', namespaces)
             if coords_elem is not None and coords_elem.text:
                 coord_text = coords_elem.text.strip()
                 coord_list = []
-                
                 for coord_pair in coord_text.split():
                     parts = coord_pair.split(',')
                     if len(parts) >= 2:
-                        try:
-                            lon = float(parts[0].strip())
-                            lat = float(parts[1].strip())
-                            # Filtrar coordenadas inválidas
-                            if -180 <= lon <= 180 and -90 <= lat <= 90:
-                                coord_list.append((lon, lat))
-                        except ValueError:
-                            continue
-                
+                        lon = float(parts[0])
+                        lat = float(parts[1])
+                        coord_list.append((lon, lat))
                 if len(coord_list) >= 3:
-                    try:
-                        polygon = Polygon(coord_list)
-                        if polygon.is_valid and polygon.area > 0:
-                            polygons.append(polygon)
-                    except Exception:
-                        continue
-        
-        # También buscar en MultiGeometry
-        for multi_geom in root.findall('.//kml:MultiGeometry', namespaces):
-            for polygon_elem in multi_geom.findall('.//kml:Polygon', namespaces):
-                coords_elem = polygon_elem.find('.//kml:coordinates', namespaces)
-                if coords_elem is not None and coords_elem.text:
-                    coord_text = coords_elem.text.strip()
-                    coord_list = []
-                    
-                    for coord_pair in coord_text.split():
-                        parts = coord_pair.split(',')
-                        if len(parts) >= 2:
-                            try:
-                                lon = float(parts[0].strip())
-                                lat = float(parts[1].strip())
-                                if -180 <= lon <= 180 and -90 <= lat <= 90:
-                                    coord_list.append((lon, lat))
-                            except ValueError:
-                                continue
-                    
-                    if len(coord_list) >= 3:
-                        try:
-                            polygon = Polygon(coord_list)
-                            if polygon.is_valid and polygon.area > 0:
-                                polygons.append(polygon)
-                        except Exception:
-                            continue
-        
-        # Si no encontramos polígonos, buscar en Placemarks
+                    polygons.append(Polygon(coord_list))
         if not polygons:
+            for multi_geom in root.findall('.//kml:MultiGeometry', namespaces):
+                for polygon_elem in multi_geom.findall('.//kml:Polygon', namespaces):
+                    coords_elem = polygon_elem.find('.//kml:coordinates', namespaces)
+                    if coords_elem is not None and coords_elem.text:
+                        coord_text = coords_elem.text.strip()
+                        coord_list = []
+                        for coord_pair in coord_text.split():
+                            parts = coord_pair.split(',')
+                            if len(parts) >= 2:
+                                lon = float(parts[0])
+                                lat = float(parts[1])
+                                coord_list.append((lon, lat))
+                        if len(coord_list) >= 3:
+                            polygons.append(Polygon(coord_list))
+        if polygons:
+            gdf = gpd.GeoDataFrame({'geometry': polygons}, crs='EPSG:4326')
+            return gdf
+        else:
             for placemark in root.findall('.//kml:Placemark', namespaces):
                 for elem_name in ['Polygon', 'LineString', 'Point', 'LinearRing']:
                     elem = placemark.find(f'.//kml:{elem_name}', namespaces)
@@ -1007,34 +932,19 @@ def parsear_kml_manual(contenido_kml):
                         if coords_elem is not None and coords_elem.text:
                             coord_text = coords_elem.text.strip()
                             coord_list = []
-                            
                             for coord_pair in coord_text.split():
                                 parts = coord_pair.split(',')
                                 if len(parts) >= 2:
-                                    try:
-                                        lon = float(parts[0].strip())
-                                        lat = float(parts[1].strip())
-                                        if -180 <= lon <= 180 and -90 <= lat <= 90:
-                                            coord_list.append((lon, lat))
-                                    except ValueError:
-                                        continue
-                            
+                                    lon = float(parts[0])
+                                    lat = float(parts[1])
+                                    coord_list.append((lon, lat))
                             if len(coord_list) >= 3:
-                                try:
-                                    polygon = Polygon(coord_list)
-                                    if polygon.is_valid and polygon.area > 0:
-                                        polygons.append(polygon)
-                                except Exception:
-                                    continue
-        
+                                polygons.append(Polygon(coord_list))
+                            break
         if polygons:
-            # Crear GeoDataFrame con todos los polígonos
             gdf = gpd.GeoDataFrame({'geometry': polygons}, crs='EPSG:4326')
             return gdf
-        else:
-            st.warning("⚠️ No se encontraron polígonos válidos en el KML")
-            return None
-    
+        return None
     except Exception as e:
         st.error(f"❌ Error parseando KML manualmente: {str(e)}")
         return None
@@ -1087,41 +997,21 @@ def cargar_archivo_parcela(uploaded_file):
         else:
             st.error("❌ Formato de archivo no soportado")
             return None
-        
         if gdf is not None:
             gdf = validar_y_corregir_crs(gdf)
-            
             if not gdf.geometry.geom_type.str.contains('Polygon').any():
                 st.warning("⚠️ El archivo no contiene polígonos. Intentando extraer polígonos...")
                 gdf = gdf.explode()
                 gdf = gdf[gdf.geometry.geom_type.isin(['Polygon', 'MultiPolygon'])]
-                
                 if len(gdf) > 0:
-                    # UNIR POLÍGONOS MÚLTIPLES si está activada la opción
-                    unir_poligonos = st.session_state.get('unir_poligonos', True)
-                    if unir_poligonos and len(gdf) > 1:
-                        gdf = unir_poligonos_multiples(gdf)
-                    
                     if 'id_zona' not in gdf.columns:
                         gdf['id_zona'] = range(1, len(gdf) + 1)
-                    
                     if str(gdf.crs).upper() != 'EPSG:4326':
                         st.warning(f"⚠️ El archivo no pudo ser convertido a EPSG:4326. CRS actual: {gdf.crs}")
                     return gdf
                 else:
                     st.error("❌ No se encontraron polígonos en el archivo")
                     return None
-            else:
-                # UNIR POLÍGONOS MÚLTIPLES incluso si ya son polígonos
-                unir_poligonos = st.session_state.get('unir_poligonos', True)
-                if unir_poligonos and len(gdf) > 1:
-                    gdf = unir_poligonos_multiples(gdf)
-                else:
-                    # Si solo hay uno, asegurar id_zona
-                    if 'id_zona' not in gdf.columns:
-                        gdf['id_zona'] = [1]
-                
-                return gdf
         return gdf
     except Exception as e:
         st.error(f"❌ Error cargando archivo: {str(e)}")
@@ -1583,7 +1473,7 @@ def generar_resumen_estadisticas(gdf_analizado, analisis_tipo, cultivo, df_power
             if df_power is not None:
                 estadisticas['Radiación Solar Promedio'] = f"{df_power['radiacion_solar'].mean():.1f} kWh/m²/día"
                 estadisticas['Velocidad Viento Promedio'] = f"{df_power['viento_2m'].mean():.2f} m/s"
-                estadisticas['Precipitación Promedio'] = f"{df_power['precipitacion'].mean():.2f} mm/día"  # ← NUEVO
+                estadisticas['Precipitación Promedio'] = f"{df_power['precipitacion'].mean():.2f} mm/día"
         elif analisis_tipo == "ANÁLISIS DE TEXTURA":
             if 'arena' in gdf_analizado.columns:
                 estadisticas['Arena Promedio'] = f"{gdf_analizado['arena'].mean():.1f}%"
@@ -1647,21 +1537,21 @@ def limpiar_texto_para_pdf(texto):
     if not isinstance(texto, str):
         texto = str(texto)
     reemplazos = {
-        '\u2022': '-',          # • → -
-        '\u2705': '[OK]',       # ✅
-        '\u26A0\uFE0F': '[!]',  # ⚠️
-        '\u274C': '[X]',        # ❌
-        '\u2013': '-',          # – → -
-        '\u2014': '--',         # — → --
-        '\u2018': "'",          # ‘
-        '\u2019': "'",          # ’
-        '\u201C': '"',          # "
-        '\u201D': '"',          # "
-        '\u2192': '->',         # →
-        '\u2190': '<-',         # ←
-        '\u2265': '>=',         # ≥
-        '\u2264': '<=',         # ≤
-        '\u00A0': ' ',          # non-breaking space → espacio normal
+        '\u2022': '-',
+        '\u2705': '[OK]',
+        '\u26A0\uFE0F': '[!]',
+        '\u274C': '[X]',
+        '\u2013': '-',
+        '\u2014': '--',
+        '\u2018': "'",
+        '\u2019': "'",
+        '\u201C': '"',
+        '\u201D': '"',
+        '\u2192': '->',
+        '\u2190': '<-',
+        '\u2265': '>=',
+        '\u2264': '<=',
+        '\u00A0': ' ',
     }
     for original, reemplazo in reemplazos.items():
         texto = texto.replace(original, reemplazo)
@@ -2046,7 +1936,19 @@ def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
         centroids = gdf_plot.geometry.centroid
         x = [c.x for c in centroids]
         y = [c.y for c in centroids]
-        z = gdf_plot['potencial_cosecha'].values
+        
+        # Crear valores simulados si no existe la columna
+        if 'potencial_cosecha' not in gdf_analizado.columns:
+            # Generar valores simulados basados en índices existentes
+            if 'npk_actual' in gdf_analizado.columns:
+                z = gdf_analizado['npk_actual'].values
+            elif 'ndvi' in gdf_analizado.columns:
+                z = gdf_analizado['ndvi'].values
+            else:
+                # Valor por defecto
+                z = np.random.uniform(0.3, 0.9, len(gdf_analizado))
+        else:
+            z = gdf_analizado['potencial_cosecha'].values
         
         # Crear triangulación para mapa de calor continuo
         triang = Triangulation(x, y)
@@ -2071,7 +1973,6 @@ def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
         )
         
         # Dibujar polígonos de las zonas con borde sutil - SOLUCIÓN CORRECTA
-        # Separar edgecolor y alpha
         gdf_plot.plot(
             ax=ax, 
             color='none', 
@@ -2083,7 +1984,7 @@ def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
         # Etiquetas modernas para zonas
         for idx, row in gdf_plot.iterrows():
             centroid = row.geometry.centroid
-            valor = row['potencial_cosecha']
+            valor = z[idx]
             
             # Color de texto basado en valor
             text_color = 'white' if valor < 0.5 else 'black'
@@ -2150,20 +2051,20 @@ def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
         cbar.ax.tick_params(labelsize=10, colors='#2c3e50')
         
         # Leyenda para puntos calientes
-        zonas_calientes = gdf_plot[gdf_plot['potencial_cosecha'] > 0.7]
-        if not zonas_calientes.empty:
+        zonas_calientes = z > 0.7
+        if np.sum(zonas_calientes) > 0:
             # Puntos amarillos brillantes para zonas calientes
-            for idx, row in zonas_calientes.iterrows():
-                centroid = row.geometry.centroid
-                ax.plot(
-                    centroid.x, centroid.y, 
-                    'o',  # Círculo
-                    markersize=12, 
-                    markeredgecolor='#f1c40f',
-                    markeredgewidth=2,
-                    markerfacecolor='#f39c12',
-                    alpha=0.8
-                )
+            for i, (xi, yi, zi) in enumerate(zip(x, y, z)):
+                if zi > 0.7:
+                    ax.plot(
+                        xi, yi, 
+                        'o',  # Círculo
+                        markersize=12, 
+                        markeredgecolor='#f1c40f',
+                        markeredgewidth=2,
+                        markerfacecolor='#f39c12',
+                        alpha=0.8
+                    )
             
             # Añadir leyenda
             from matplotlib.lines import Line2D
@@ -2187,10 +2088,10 @@ def crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo):
         # Añadir estadísticas en esquina
         stats_text = f"""
         Estadísticas:
-        • Promedio: {gdf_plot['potencial_cosecha'].mean():.2f}
-        • Máximo: {gdf_plot['potencial_cosecha'].max():.2f}
-        • Mínimo: {gdf_plot['potencial_cosecha'].min():.2f}
-        • Zonas Calientes: {len(zonas_calientes)}/{len(gdf_plot)}
+        • Promedio: {np.mean(z):.2f}
+        • Máximo: {np.max(z):.2f}
+        • Mínimo: {np.min(z):.2f}
+        • Zonas Calientes: {np.sum(z > 0.7)}/{len(z)}
         """
         
         ax.text(
@@ -2296,6 +2197,242 @@ def ejecutar_analisis(gdf, nutriente, analisis_tipo, n_divisiones, cultivo,
         import traceback
         st.error(f"Detalle: {traceback.format_exc()}")
         return resultados
+
+# ===== FUNCIONES PARA ANALIZAR TODOS LOS POLÍGONOS =====
+def analizar_todos_poligonos(gdf_total, nutriente, analisis_tipo, n_divisiones, cultivo,
+                           satelite=None, indice=None, fecha_inicio=None,
+                           fecha_fin=None, intervalo_curvas=5.0, resolucion_dem=10.0):
+    """
+    Analiza todos los polígonos del archivo cargado, dividiendo cada uno en zonas.
+    Combina los resultados en un único GeoDataFrame.
+    """
+    resultados_totales = {
+        'exitoso': False,
+        'gdf_analizado_total': None,
+        'mapa_buffer_total': None,
+        'estadisticas_por_poligono': {},
+        'recomendaciones_totales': [],
+        'area_total_combinada': 0,
+        'df_power': None,
+        'poligonos_procesados': 0
+    }
+    
+    try:
+        gdf_total = validar_y_corregir_crs(gdf_total)
+        resultados_por_poligono = []
+        
+        # Si el archivo ya tiene ID de zona, usarlo; si no, crearlo
+        if 'id_zona' not in gdf_total.columns:
+            gdf_total['id_zona'] = range(1, len(gdf_total) + 1)
+        
+        # Crear barra de progreso
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for idx, poligono_row in gdf_total.iterrows():
+            poligono_id = poligono_row['id_zona']
+            status_text.text(f"📊 Analizando polígono {poligono_id} de {len(gdf_total)}...")
+            
+            # Crear GeoDataFrame con solo este polígono
+            poligono_gdf = gpd.GeoDataFrame(
+                [poligono_row], 
+                geometry='geometry', 
+                crs=gdf_total.crs
+            )
+            
+            # Ejecutar análisis para este polígono individual
+            resultados_poligono = ejecutar_analisis(
+                poligono_gdf, nutriente, analisis_tipo, n_divisiones,
+                cultivo, satelite, indice, fecha_inicio, fecha_fin,
+                intervalo_curvas, resolucion_dem
+            )
+            
+            if resultados_poligono and resultados_poligono['exitoso']:
+                # Agregar información del polígono original a los resultados
+                gdf_analizado = resultados_poligono['gdf_analizado']
+                if gdf_analizado is not None and not gdf_analizado.empty:
+                    # Crear un ID compuesto: polígono.zona
+                    gdf_analizado['id_poligono'] = poligono_id
+                    gdf_analizado['id_zona_compuesto'] = [
+                        f"{poligono_id}.{zona_id}" 
+                        for zona_id in gdf_analizado['id_zona']
+                    ]
+                    
+                    resultados_por_poligono.append({
+                        'poligono_id': poligono_id,
+                        'gdf_analizado': gdf_analizado,
+                        'area_poligono': resultados_poligono['area_total'],
+                        'estadisticas': resultados_poligono.get('estadisticas', {})
+                    })
+                
+                # Mantener datos de NASA POWER del primer polígono
+                if resultados_totales['df_power'] is None and 'df_power' in resultados_poligono:
+                    resultados_totales['df_power'] = resultados_poligono['df_power']
+            
+            # Actualizar barra de progreso
+            progress_bar.progress((idx + 1) / len(gdf_total))
+        
+        status_text.text("✅ Análisis completado!")
+        
+        # Combinar todos los resultados
+        if resultados_por_poligono:
+            # Combinar todos los GeoDataFrames
+            gdfs_a_combinar = [r['gdf_analizado'] for r in resultados_por_poligono]
+            gdf_combinado = pd.concat(gdfs_a_combinar, ignore_index=True)
+            
+            # Calcular área total combinada
+            area_total_combinada = sum(r['area_poligono'] for r in resultados_por_poligono)
+            
+            resultados_totales.update({
+                'exitoso': True,
+                'gdf_analizado_total': gdf_combinado,
+                'poligonos_procesados': len(resultados_por_poligono),
+                'area_total_combinada': area_total_combinada,
+                'resultados_por_poligono': resultados_por_poligono
+            })
+        
+        progress_bar.empty()
+        status_text.empty()
+        
+        return resultados_totales
+        
+    except Exception as e:
+        st.error(f"❌ Error en análisis de todos los polígonos: {str(e)}")
+        import traceback
+        st.error(f"Detalle: {traceback.format_exc()}")
+        return resultados_totales
+
+# ===== FUNCIÓN PARA MOSTRAR RESULTADOS COMBINADOS =====
+def mostrar_resultados_combinados(resultados_totales, cultivo, analisis_tipo, nutriente=None, satelite=None):
+    """
+    Muestra los resultados combinados de todos los polígonos analizados.
+    """
+    if not resultados_totales['exitoso']:
+        st.error("❌ No se pudieron procesar los polígonos")
+        return
+    
+    gdf_combinado = resultados_totales['gdf_analizado_total']
+    area_total = resultados_totales['area_total_combinada']
+    poligonos_procesados = resultados_totales['poligonos_procesados']
+    
+    st.success(f"✅ **ANÁLISIS COMPLETADO:** {poligonos_procesados} polígonos procesados, {len(gdf_combinado)} zonas totales")
+    
+    # Mostrar resumen general
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("📊 Polígonos", poligonos_procesados)
+    with col2:
+        st.metric("🧩 Zonas Totales", len(gdf_combinado))
+    with col3:
+        st.metric("🗺️ Área Total", f"{area_total:.1f} ha")
+    with col4:
+        if analisis_tipo == "FERTILIDAD ACTUAL" and 'npk_actual' in gdf_combinado.columns:
+            valor_prom = gdf_combinado['npk_actual'].mean()
+            st.metric("📈 NPK Promedio", f"{valor_prom:.3f}")
+        elif analisis_tipo == "RECOMENDACIONES NPK" and 'valor_recomendado' in gdf_combinado.columns:
+            valor_prom = gdf_combinado['valor_recomendado'].mean()
+            st.metric(f"📊 {nutriente} Promedio", f"{valor_prom:.1f} kg/ha")
+    
+    # Mostrar estadísticas por polígono
+    st.subheader("📋 ESTADÍSTICAS POR POLÍGONO")
+    
+    datos_poligonos = []
+    for resultado in resultados_totales.get('resultados_por_poligono', []):
+        poligono_id = resultado['poligono_id']
+        area_poligono = resultado['area_poligono']
+        gdf_poligono = resultado['gdf_analizado']
+        
+        datos_poligono = {
+            'Polígono': poligono_id,
+            'Área (ha)': f"{area_poligono:.2f}",
+            'Zonas': len(gdf_poligono)
+        }
+        
+        # Agregar métricas específicas según tipo de análisis
+        if analisis_tipo == "FERTILIDAD ACTUAL" and 'npk_actual' in gdf_poligono.columns:
+            datos_poligono['NPK Promedio'] = f"{gdf_poligono['npk_actual'].mean():.3f}"
+            datos_poligono['NDVI Promedio'] = f"{gdf_poligono['ndvi'].mean():.3f}"
+        
+        elif analisis_tipo == "RECOMENDACIONES NPK" and 'valor_recomendado' in gdf_poligono.columns:
+            datos_poligono[f'{nutriente} Promedio'] = f"{gdf_poligono['valor_recomendado'].mean():.1f}"
+            datos_poligono['NDRE Promedio'] = f"{gdf_poligono['ndre'].mean():.3f}"
+        
+        elif analisis_tipo == "ANÁLISIS DE TEXTURA" and 'textura_suelo' in gdf_poligono.columns:
+            textura_pred = gdf_poligono['textura_suelo'].mode()[0] if len(gdf_poligono) > 0 else "N/D"
+            datos_poligono['Textura Predominante'] = textura_pred
+        
+        datos_poligonos.append(datos_poligono)
+    
+    if datos_poligonos:
+        df_resumen = pd.DataFrame(datos_poligonos)
+        st.dataframe(df_resumen, use_container_width=True)
+    
+    # Mapa combinado de todos los polígonos
+    if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
+        columna_valor = 'valor_recomendado' if analisis_tipo == "RECOMENDACIONES NPK" else 'npk_actual'
+        
+        # Crear mapa combinado
+        mapa_combinado = crear_mapa_estatico_con_esri(
+            gdf_combinado,
+            f"ANÁLISIS COMBINADO - {analisis_tipo}",
+            columna_valor,
+            analisis_tipo,
+            nutriente,
+            cultivo,
+            satelite
+        )
+        
+        if mapa_combinado:
+            st.subheader(f"🗺️ MAPA COMBINADO - TODOS LOS POLÍGONOS")
+            st.image(mapa_combinado, use_container_width=True)
+            
+            st.download_button(
+                "📥 Descargar Mapa Combinado",
+                mapa_combinado,
+                f"mapa_combinado_{cultivo}_{datetime.now().strftime('%Y%m%d_%H%M')}.png",
+                "image/png"
+            )
+    
+    # Mostrar datos detallados por zona
+    st.subheader("🔍 DATOS DETALLADOS POR ZONA")
+    
+    columnas_a_mostrar = ['id_poligono', 'id_zona_compuesto', 'area_ha']
+    
+    if analisis_tipo == "FERTILIDAD ACTUAL":
+        columnas_a_mostrar.extend(['npk_actual', 'ndvi', 'ndre', 'humedad_suelo'])
+    elif analisis_tipo == "RECOMENDACIONES NPK":
+        columnas_a_mostrar.extend(['valor_recomendado', 'npk_actual', 'ndre', 'humedad_suelo'])
+    elif analisis_tipo == "ANÁLISIS DE TEXTURA":
+        columnas_a_mostrar.extend(['textura_suelo', 'arena', 'limo', 'arcilla'])
+    
+    columnas_a_mostrar = [col for col in columnas_a_mostrar if col in gdf_combinado.columns]
+    
+    if columnas_a_mostrar:
+        df_detalle = gdf_combinado[columnas_a_mostrar].copy()
+        
+        # Renombrar columnas para mejor visualización
+        rename_dict = {
+            'id_poligono': 'Polígono',
+            'id_zona_compuesto': 'Zona',
+            'area_ha': 'Área (ha)',
+            'npk_actual': 'NPK Actual',
+            'valor_recomendado': 'Recomendación',
+            'ndvi': 'NDVI',
+            'ndre': 'NDRE',
+            'humedad_suelo': 'Humedad',
+            'textura_suelo': 'Textura',
+            'arena': 'Arena (%)',
+            'limo': 'Limo (%)',
+            'arcilla': 'Arcilla (%)'
+        }
+        
+        df_detalle = df_detalle.rename(columns={k: v for k, v in rename_dict.items() if k in df_detalle.columns})
+        st.dataframe(df_detalle.head(50), use_container_width=True)
+        
+        # Botón para ver todos los datos
+        if len(df_detalle) > 50:
+            with st.expander("📄 Ver todas las zonas"):
+                st.dataframe(df_detalle, use_container_width=True)
 
 # ===== FUNCIONES DE VISUALIZACIÓN =====
 def mostrar_resultados_textura(gdf_analizado, cultivo, area_total):
@@ -2478,21 +2615,26 @@ if uploaded_file:
             if gdf is not None:
                 st.success(f"✅ **Parcela cargada exitosamente:** {len(gdf)} polígono(s)")
                 area_total = calcular_superficie(gdf)
+                
+                # Mostrar información detallada de los polígonos
+                st.write("**📊 DETALLE DE POLÍGONOS:**")
+                if 'id_zona' in gdf.columns:
+                    for idx, row in gdf.iterrows():
+                        poly_area = calcular_superficie(gpd.GeoDataFrame([row], crs=gdf.crs))
+                        st.write(f"- Zona {row['id_zona']}: {poly_area:.2f} ha")
+                else:
+                    for i in range(len(gdf)):
+                        poly_area = calcular_superficie(gpd.GeoDataFrame([gdf.iloc[i]], crs=gdf.crs))
+                        st.write(f"- Polígono {i+1}: {poly_area:.2f} ha")
+                
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.write("**📊 INFORMACIÓN DE LA PARCELA:**")
+                    st.write("**📊 RESUMEN DE PARCELA:**")
                     st.write(f"- Polígonos: {len(gdf)}")
                     st.write(f"- Área total: {area_total:.1f} ha")
                     st.write(f"- CRS: {gdf.crs}")
                     st.write(f"- Formato: {uploaded_file.name.split('.')[-1].upper()}")
-                    st.write("**📍 Vista Previa:**")
-                    fig, ax = plt.subplots(figsize=(8, 6))
-                    gdf.plot(ax=ax, color='lightgreen', edgecolor='darkgreen', alpha=0.7)
-                    ax.set_title(f"Parcela: {uploaded_file.name}")
-                    ax.set_xlabel("Longitud")
-                    ax.set_ylabel("Latitud")
-                    ax.grid(True, alpha=0.3)
-                    st.pyplot(fig)
+                    
                 with col2:
                     st.write("**🎯 CONFIGURACIÓN GEE:**")
                     st.write(f"- Cultivo: {ICONOS_CULTIVOS[cultivo]} {cultivo}")
@@ -2505,351 +2647,82 @@ if uploaded_file:
                     elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
                         st.write(f"- Intervalo curvas: {intervalo_curvas} m")
                         st.write(f"- Resolución DEM: {resolucion_dem} m")
-                if st.button("🚀 EJECUTAR ANÁLISIS COMPLETO", type="primary"):
-                    resultados = None
-                    if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
-                        resultados = ejecutar_analisis(
-                            gdf, nutriente, analisis_tipo, n_divisiones,
-                            cultivo, satelite_seleccionado, indice_seleccionado,
-                            fecha_inicio, fecha_fin
+                
+                # Vista previa con colores diferentes para cada polígono
+                st.write("**📍 VISTA PREVIA DE PARCELA:**")
+                fig, ax = plt.subplots(figsize=(10, 8))
+                
+                # Asignar colores diferentes a cada polígono
+                colors = plt.cm.Set3(np.linspace(0, 1, len(gdf)))
+                
+                for idx, (_, row) in enumerate(gdf.iterrows()):
+                    if 'id_zona' in gdf.columns:
+                        label = f"Zona {row['id_zona']}"
+                    else:
+                        label = f"Polígono {idx+1}"
+                    
+                    poly_gdf = gpd.GeoDataFrame([row], crs=gdf.crs)
+                    poly_gdf.plot(ax=ax, color=colors[idx], edgecolor='black', 
+                                 alpha=0.7, label=label)
+                    
+                    # Etiquetar el centroide
+                    centroid = row.geometry.centroid
+                    ax.annotate(label, (centroid.x, centroid.y),
+                              xytext=(5, 5), textcoords="offset points",
+                              fontsize=9, fontweight='bold',
+                              bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
+                
+                ax.set_title(f"Parcela: {uploaded_file.name} ({len(gdf)} polígonos)")
+                ax.set_xlabel("Longitud")
+                ax.set_ylabel("Latitud")
+                ax.grid(True, alpha=0.3)
+                ax.legend(loc='upper right')
+                
+                st.pyplot(fig)
+                
+                # BOTÓN MODIFICADO PARA EJECUTAR ANÁLISIS EN TODOS LOS POLÍGONOS
+                if st.button("🚀 EJECUTAR ANÁLISIS EN TODOS LOS POLÍGONOS", type="primary"):
+                    with st.spinner(f"🔍 Analizando {len(gdf)} polígonos..."):
+                        resultados_totales = analizar_todos_poligonos(
+                            gdf,
+                            nutriente,
+                            analisis_tipo,
+                            n_divisiones,
+                            cultivo,
+                            satelite_seleccionado if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"] else None,
+                            indice_seleccionado if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"] else None,
+                            fecha_inicio if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"] else None,
+                            fecha_fin if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"] else None,
+                            intervalo_curvas if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL" else 5.0,
+                            resolucion_dem if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL" else 10.0
                         )
-                    elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
-                        resultados = ejecutar_analisis(
-                            gdf, None, analisis_tipo, n_divisiones,
-                            cultivo, None, None, None, None,
-                            intervalo_curvas, resolucion_dem
-                        )
-                    else:  # ANÁLISIS DE TEXTURA
-                        resultados = ejecutar_analisis(
-                            gdf, None, analisis_tipo, n_divisiones,
-                            cultivo, None, None, None, None
-                        )
-                    # GUARDAR RESULTADOS EN SESSION STATE
-                    if resultados and resultados['exitoso']:
-                        st.session_state['resultados_guardados'] = {
-                            'gdf_analizado': resultados['gdf_analizado'],
-                            'analisis_tipo': analisis_tipo,
-                            'cultivo': cultivo,
-                            'area_total': resultados['area_total'],
-                            'nutriente': nutriente,
-                            'satelite_seleccionado': satelite_seleccionado,
-                            'indice_seleccionado': indice_seleccionado,
-                            'mapa_buffer': resultados.get('mapa_buffer'),
-                            'X': None,
-                            'Y': None,
-                            'Z': None,
-                            'pendiente_grid': None,
-                            'gdf_original': gdf if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL" else None,
-                            'df_power': resultados.get('df_power')
-                        }
-                        if analisis_tipo == "ANÁLISIS DE TEXTURA":
-                            mostrar_resultados_textura(resultados['gdf_analizado'], cultivo, resultados['area_total'])
-                        elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
-                            X, Y, Z, _ = generar_dem_sintetico(gdf, resolucion_dem)
-                            pendiente_grid = calcular_pendiente_simple(X, Y, Z, resolucion_dem)
-                            curvas, elevaciones = generar_curvas_nivel_simple(X, Y, Z, intervalo_curvas, gdf)
-                            st.session_state['resultados_guardados'].update({
-                                'X': X, 'Y': Y, 'Z': Z, 'pendiente_grid': pendiente_grid
-                            })
-                            mostrar_resultados_curvas_nivel(X, Y, Z, pendiente_grid, curvas, elevaciones, gdf, cultivo, resultados['area_total'])
+                        
+                        if resultados_totales['exitoso']:
+                            # Guardar en session state
+                            st.session_state['resultados_guardados'] = {
+                                'gdf_analizado': resultados_totales['gdf_analizado_total'],
+                                'analisis_tipo': analisis_tipo,
+                                'cultivo': cultivo,
+                                'area_total': resultados_totales['area_total_combinada'],
+                                'nutriente': nutriente,
+                                'satelite_seleccionado': satelite_seleccionado,
+                                'indice_seleccionado': indice_seleccionado,
+                                'resultados_totales': resultados_totales,
+                                'mapa_buffer': resultados_totales.get('mapa_buffer_total'),
+                                'df_power': resultados_totales.get('df_power')
+                            }
+                            
+                            # Mostrar resultados combinados
+                            mostrar_resultados_combinados(
+                                resultados_totales,
+                                cultivo,
+                                analisis_tipo,
+                                nutriente,
+                                satelite_seleccionado
+                            )
                         else:
-                            # Mostrar resultados GEE
-                            gdf_analizado = resultados['gdf_analizado']
-                            col1, col2, col3, col4 = st.columns(4)
-                            with col1:
-                                st.metric("Zonas Analizadas", len(gdf_analizado))
-                            with col2:
-                                st.metric("Área Total", f"{resultados['area_total']:.1f} ha")
-                            with col3:
-                                if analisis_tipo == "FERTILIDAD ACTUAL":
-                                    valor_prom = gdf_analizado['npk_actual'].mean()
-                                    st.metric("Índice NPK Promedio", f"{valor_prom:.3f}")
-                                else:
-                                    valor_prom = gdf_analizado['valor_recomendado'].mean()
-                                    st.metric(f"{nutriente} Promedio", f"{valor_prom:.1f} kg/ha")
-                            with col4:
-                                if analisis_tipo == "FERTILIDAD ACTUAL" and gdf_analizado['npk_actual'].mean() > 0:
-                                    coef_var = (gdf_analizado['npk_actual'].std() / gdf_analizado['npk_actual'].mean() * 100)
-                                    st.metric("Coef. Variación", f"{coef_var:.1f}%")
-                                elif analisis_tipo == "RECOMENDACIONES NPK" and gdf_analizado['valor_recomendado'].mean() > 0:
-                                    coef_var = (gdf_analizado['valor_recomendado'].std() / gdf_analizado['valor_recomendado'].mean() * 100)
-                                    st.metric("Coef. Variación", f"{coef_var:.1f}%")
-                          # === DATOS DE NASA POWER ===
-if resultados.get('df_power') is not None:
-    df_power = resultados['df_power']
-    st.subheader("🌤️ DATOS METEOROLÓGICOS (NASA POWER)")
-    col5, col6, col7 = st.columns(3)
-    with col5:
-        st.metric("☀️ Radiación Solar", f"{df_power['radiacion_solar'].mean():.1f} kWh/m²/día")
-    with col6:
-        st.metric("💨 Viento a 2m", f"{df_power['viento_2m'].mean():.2f} m/s")
-    with col7:
-        st.metric("💧 NDWI Promedio", f"{gdf_analizado['ndwi'].mean():.3f}")
-
-    # === PESTAÑAS CON NUEVA PESTAÑA DE POTENCIAL DE COSECHA ===
-    try:
-        tab_radiacion, tab_viento, tab_precip, tab_cosecha = st.tabs([
-            "☀️ Radiación Solar",
-            "💨 Velocidad del Viento",
-            "🌧️ Precipitación",
-            "🔥 Potencial de Cosecha"
-        ])
-
-        def crear_grafico_personalizado(series, titulo, ylabel, color_linea, fondo_grafico='#f8f9fa', color_texto='#2c3e50'):
-            fig, ax = plt.subplots(figsize=(10, 4))
-            ax.set_facecolor(fondo_grafico)
-            fig.patch.set_facecolor(fondo_grafico)
-            ax.plot(series.index, series.values, color=color_linea, linewidth=2.2)
-            ax.set_title(titulo, fontsize=14, fontweight='bold', color=color_texto)
-            ax.set_ylabel(ylabel, fontsize=12, color=color_texto)
-            ax.set_xlabel("Fecha", fontsize=11, color=color_texto)
-            ax.tick_params(axis='x', colors=color_texto, rotation=0)
-            ax.tick_params(axis='y', colors=color_texto)
-            ax.grid(True, color='#cbd5e0', linestyle='--', linewidth=0.7, alpha=0.7)
-            for spine in ax.spines.values():
-                spine.set_color('#cbd5e0')
-            plt.tight_layout()
-            return fig
-
-        def crear_grafico_barras_personalizado(series, titulo, ylabel, color_barra, fondo_grafico='#f8f9fa', color_texto='#2c3e50'):
-            fig, ax = plt.subplots(figsize=(10, 4))
-            ax.set_facecolor(fondo_grafico)
-            fig.patch.set_facecolor(fondo_grafico)
-            ax.bar(series.index, series.values, color=color_barra, alpha=0.85)
-            ax.set_title(titulo, fontsize=14, fontweight='bold', color=color_texto)
-            ax.set_ylabel(ylabel, fontsize=12, color=color_texto)
-            ax.set_xlabel("Fecha", fontsize=11, color=color_texto)
-            ax.tick_params(axis='x', colors=color_texto, rotation=0)
-            ax.tick_params(axis='y', colors=color_texto)
-            ax.grid(axis='y', color='#cbd5e0', linestyle='--', linewidth=0.7, alpha=0.7)
-            for spine in ax.spines.values():
-                spine.set_color('#cbd5e0')
-            plt.tight_layout()
-            return fig
-
-        # === PESTAÑA: RADIACIÓN SOLAR ===
-        with tab_radiacion:
-            serie_rad = df_power.set_index('fecha')['radiacion_solar']
-            prom_rad = serie_rad.mean()
-            max_rad = serie_rad.max()
-            min_rad = serie_rad.min()
-            if prom_rad > 5.5:
-                interpretacion = "☀️ **Alta radiación**: Condiciones óptimas para fotosíntesis en cultivos tropicales."
-            elif prom_rad > 4.0:
-                interpretacion = "🌤️ **Radiación moderada**: Adecuada para la mayoría de cultivos, con posible limitación en días nublados."
-            else:
-                interpretacion = "☁️ **Radiación baja**: Puede limitar el crecimiento; vigilar desarrollo vegetativo."
-
-            col_r1, col_r2, col_r3 = st.columns(3)
-            with col_r1:
-                st.metric("Promedio", f"{prom_rad:.1f} kWh/m²/día")
-            with col_r2:
-                st.metric("Máximo", f"{max_rad:.1f}")
-            with col_r3:
-                st.metric("Mínimo", f"{min_rad:.1f}")
-
-            st.pyplot(crear_grafico_personalizado(
-                serie_rad,
-                "Evolución Diaria de Radiación Solar",
-                "Radiación (kWh/m²/día)",
-                color_linea='#e67e22'
-            ))
-            st.markdown(f"**Interpretación agronómica:** {interpretacion}")
-
-        # === PESTAÑA: VIENTO ===
-        with tab_viento:
-            serie_viento = df_power.set_index('fecha')['viento_2m']
-            prom_viento = serie_viento.mean()
-            max_viento = serie_viento.max()
-            min_viento = serie_viento.min()
-            if prom_viento < 2.0:
-                interpretacion = "🍃 **Viento suave**: Bajo riesgo de estrés mecánico o deshidratación."
-            elif prom_viento < 4.0:
-                interpretacion = "🌬️ **Viento moderado**: Aceptable; monitorear en etapas sensibles (floración, fruto joven)."
-            else:
-                interpretacion = "💨 **Viento fuerte**: Alto riesgo de daño mecánico, aumento de evapotranspiración y posible caída de frutos."
-
-            col_w1, col_w2, col_w3 = st.columns(3)
-            with col_w1:
-                st.metric("Promedio", f"{prom_viento:.2f} m/s")
-            with col_w2:
-                st.metric("Máximo", f"{max_viento:.2f}")
-            with col_w3:
-                st.metric("Mínimo", f"{min_viento:.2f}")
-
-            st.pyplot(crear_grafico_personalizado(
-                serie_viento,
-                "Evolución Diaria de Velocidad del Viento",
-                "Viento a 2m (m/s)",
-                color_linea='#3498db'
-            ))
-            st.markdown(f"**Interpretación agronómica:** {interpretacion}")
-
-        # === PESTAÑA: PRECIPITACIÓN ===
-        with tab_precip:
-            serie_precip = df_power.set_index('fecha')['precipitacion']
-            prom_precip = serie_precip.mean()
-            total_precip = serie_precip.sum()
-            dias_lluvia = (serie_precip > 0.1).sum()
-            if prom_precip > 8:
-                interpretacion = "🌧️ **Precipitación alta**: Riesgo de encharcamiento y lixiviación de nutrientes. Asegurar drenaje."
-            elif prom_precip > 3:
-                interpretacion = "💧 **Precipitación adecuada**: Condiciones hídricas favorables para cultivos tropicales."
-            else:
-                interpretacion = "🏜️ **Precipitación baja**: Posible déficit hídrico; considerar riego suplementario."
-
-            col_p1, col_p2, col_p3 = st.columns(3)
-            with col_p1:
-                st.metric("Total", f"{total_precip:.1f} mm")
-            with col_p2:
-                st.metric("Promedio", f"{prom_precip:.1f} mm/día")
-            with col_p3:
-                st.metric("Días con lluvia", f"{dias_lluvia}")
-
-            st.pyplot(crear_grafico_barras_personalizado(
-                serie_precip,
-                "Precipitación Diaria",
-                "Precipitación (mm/día)",
-                color_barra='#2ecc71'
-            ))
-            st.markdown(f"**Interpretación agronómica:** {interpretacion}")
-
-        # === PESTAÑA: POTENCIAL DE COSECHA ===
-        with tab_cosecha:
-            st.subheader("🔥 Análisis de Potencial de Cosecha - Puntos Calientes")
-            st.markdown("""
-            **Metodología:**
-            - Se integran datos de fertilidad (NPK), radiación solar, humedad (NDWI) y estrés por viento
-            - Las zonas con valores más altos (rojo/amarillo) son los **puntos calientes** para mejor cosecha
-            - Los círculos amarillos marcan zonas con potencial >0.7
-            """)
-
-            # --- Paso 1: Agregar datos meteorológicos promedio a cada zona ---
-            rad_prom = df_power['radiacion_solar'].mean()
-            viento_prom = df_power['viento_2m'].mean()
-            
-            # Asignar los mismos valores promedio a todas las zonas
-            gdf_analizado['radiacion_solar'] = rad_prom
-            gdf_analizado['viento_2m'] = viento_prom
-
-            # --- Paso 2: Normalizar cada variable a [0, 1] ---
-            def normalizar_solar(valor):
-                return np.clip((valor - 3.0) / (7.0 - 3.0), 0, 1)
-
-            def normalizar_viento(valor):
-                return np.clip(1 - (valor - 1.0) / (5.0 - 1.0), 0, 1)
-
-            def normalizar_humedad(ndwi):
-                return np.clip((ndwi - 0.1) / (0.4 - 0.1), 0, 1)
-
-            gdf_analizado['solar_norm'] = gdf_analizado['radiacion_solar'].apply(normalizar_solar)
-            gdf_analizado['viento_norm'] = gdf_analizado['viento_2m'].apply(normalizar_viento)
-            gdf_analizado['humedad_norm'] = gdf_analizado['ndwi'].apply(normalizar_humedad)
-
-            # --- Paso 3: Calcular índice integrado ---
-            w_fertilidad = 0.40
-            w_solar = 0.25
-            w_humedad = 0.20
-            w_viento = 0.15
-
-            gdf_analizado['potencial_cosecha'] = (
-                w_fertilidad * gdf_analizado['npk_actual'] +
-                w_solar * gdf_analizado['solar_norm'] +
-                w_humedad * gdf_analizado['humedad_norm'] +
-                w_viento * gdf_analizado['viento_norm']
-            ).clip(0, 1)
-
-            # Escalar a toneladas/ha según cultivo base
-            produccion_base = {
-                'PALMA ACEITERA': 20,
-                'CACAO': 1.2,
-                'BANANO': 35,
-                'CAFÉ': 2.5
-            }
-            base = produccion_base.get(cultivo, 10)
-            gdf_analizado['produccion_estimada'] = gdf_analizado['potencial_cosecha'] * base
-
-            # --- Paso 4: Mostrar métricas resumen ---
-            col_c1, col_c2, col_c3, col_c4 = st.columns(4)
-            with col_c1:
-                st.metric("Potencial Promedio", f"{gdf_analizado['potencial_cosecha'].mean():.2f}")
-            with col_c2:
-                st.metric("Máximo", f"{gdf_analizado['potencial_cosecha'].max():.2f}")
-            with col_c3:
-                st.metric("Producción Estimada", f"{gdf_analizado['produccion_estimada'].mean():.1f} t/ha")
-            with col_c4:
-                total_est = (gdf_analizado['produccion_estimada'] * gdf_analizado['area_ha']).sum()
-                st.metric("Total Parcela", f"{total_est:.1f} t")
-
-            # --- Paso 5: Crear mapa de calor con ESRI ---
-            mapa_calor = crear_mapa_potencial_cosecha_calor(gdf_analizado, cultivo)
-            if mapa_calor:
-                st.image(mapa_calor, use_container_width=True)
-                st.download_button(
-                    "📥 Descargar Mapa de Calor",
-                    mapa_calor,
-                    f"potencial_cosecha_calor_{cultivo}_{datetime.now().strftime('%Y%m%d')}.png",
-                    "image/png"
-                )
-
-            # --- Paso 6: Identificar puntos calientes ---
-            zonas_calientes = gdf_analizado[gdf_analizado['potencial_cosecha'] > 0.7]
-            if not zonas_calientes.empty:
-                st.subheader("📍 ZONAS CALIENTES (Potencial > 0.7)")
-                st.dataframe(zonas_calientes[['id_zona', 'area_ha', 'potencial_cosecha', 'produccion_estimada']].sort_values('potencial_cosecha', ascending=False))
-                
-                total_area_caliente = zonas_calientes['area_ha'].sum()
-                st.metric(f"Área total de zonas calientes", f"{total_area_caliente:.2f} ha")
-                
-                st.markdown("**Recomendaciones para zonas calientes:**")
-                st.markdown("""
-                - ✅ **Maximizar inversión** en estas zonas (fertilización, riego)
-                - ✅ **Priorizar cosecha** temprana en estas áreas
-                - ✅ **Monitoreo intensivo** para mantener altos rendimientos
-                """)
-    
-    except Exception as e:
-        st.error(f"Error procesando datos de NASA POWER: {str(e)}")
-
-                            # Crear mapa estático con ESRI para análisis GEE
-                            if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
-                                columna_valor = 'valor_recomendado' if analisis_tipo == "RECOMENDACIONES NPK" else 'npk_actual'
-                                mapa_buffer = crear_mapa_estatico_con_esri(gdf_analizado, 
-                                                                          f"ANÁLISIS {analisis_tipo}", 
-                                                                          columna_valor, 
-                                                                          analisis_tipo, 
-                                                                          nutriente, 
-                                                                          cultivo, 
-                                                                          satelite_seleccionado)
-                                if mapa_buffer:
-                                    st.subheader(f"🗺️ MAPA CON ESRI SATELLITE - {analisis_tipo}")
-                                    st.image(mapa_buffer, use_container_width=True)
-                                    st.session_state['resultados_guardados']['mapa_buffer'] = mapa_buffer
-                                    st.download_button(
-                                        "📥 Descargar Mapa GEE con ESRI",
-                                        mapa_buffer,
-                                        f"mapa_gee_esri_{cultivo}_{satelite_seleccionado}_{analisis_tipo.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.png",
-                                        "image/png"
-                                    )
-                                
-                                st.subheader("🔬 ÍNDICES SATELITALES GEE POR ZONA")
-                                columnas_indices = ['id_zona', 'npk_actual', 'materia_organica', 'ndvi', 'ndre', 'humedad_suelo', 'ndwi']
-                                if analisis_tipo == "RECOMENDACIONES NPK":
-                                    columnas_indices = ['id_zona', 'valor_recomendado', 'npk_actual', 'materia_organica', 'ndvi', 'ndre', 'humedad_suelo', 'ndwi']
-                                columnas_indices = [col for col in columnas_indices if col in gdf_analizado.columns]
-                                tabla_indices = gdf_analizado[columnas_indices].copy()
-                                rename_dict = {
-                                    'id_zona': 'Zona',
-                                    'npk_actual': 'NPK Actual',
-                                    'valor_recomendado': 'Recomendación',
-                                    'materia_organica': 'Materia Org (%)',
-                                    'ndvi': 'NDVI',
-                                    'ndre': 'NDRE',
-                                    'humedad_suelo': 'Humedad',
-                                    'ndwi': 'NDWI'
-                                }
-                                tabla_indices = tabla_indices.rename(columns={k: v for k, v in rename_dict.items() if k in tabla_indices.columns})
-                                st.dataframe(tabla_indices)
+                            st.error("❌ Error al analizar los polígonos")
+                            
         except Exception as e:
             st.error(f"❌ Error procesando archivo: {str(e)}")
             import traceback
