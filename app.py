@@ -28,6 +28,12 @@ import requests
 import contextily as ctx
 warnings.filterwarnings('ignore')
 
+# === INICIALIZACIÓN DE VARIABLES DE SESIÓN PARA REPORTES ===
+if 'pdf_report' not in st.session_state:
+    st.session_state.pdf_report = None
+    st.session_state.docx_report = None
+    st.session_state.report_filename_base = ""
+
 # === ESTILOS PERSONALIZADOS - VERSIÓN PREMIUM MODERNA ===
 st.markdown("""
 <style>
@@ -419,202 +425,202 @@ st.markdown("""
 
 # ===== CONFIGURACIÓN DE SATÉLITES DISPONIBLES =====
 SATELITES_DISPONIBLES = {
-'SENTINEL-2': {
-'nombre': 'Sentinel-2',
-'resolucion': '10m',
-'revisita': '5 días',
-'bandas': ['B2', 'B3', 'B4', 'B5', 'B8', 'B11'],
-'indices': ['NDVI', 'NDRE', 'GNDVI', 'OSAVI', 'MCARI'],
-'icono': '🛰️'
-},
-'LANDSAT-8': {
-'nombre': 'Landsat 8',
-'resolucion': '30m',
-'revisita': '16 días',
-'bandas': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-'indices': ['NDVI', 'NDWI', 'EVI', 'SAVI', 'MSAVI'],
-'icono': '🛰️'
-},
-'DATOS_SIMULADOS': {
-'nombre': 'Datos Simulados',
-'resolucion': '10m',
-'revisita': '5 días',
-'bandas': ['B2', 'B3', 'B4', 'B5', 'B8'],
-'indices': ['NDVI', 'NDRE', 'GNDVI'],
-'icono': '🔬'
-}
+    'SENTINEL-2': {
+        'nombre': 'Sentinel-2',
+        'resolucion': '10m',
+        'revisita': '5 días',
+        'bandas': ['B2', 'B3', 'B4', 'B5', 'B8', 'B11'],
+        'indices': ['NDVI', 'NDRE', 'GNDVI', 'OSAVI', 'MCARI'],
+        'icono': '🛰️'
+    },
+    'LANDSAT-8': {
+        'nombre': 'Landsat 8',
+        'resolucion': '30m',
+        'revisita': '16 días',
+        'bandas': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+        'indices': ['NDVI', 'NDWI', 'EVI', 'SAVI', 'MSAVI'],
+        'icono': '🛰️'
+    },
+    'DATOS_SIMULADOS': {
+        'nombre': 'Datos Simulados',
+        'resolucion': '10m',
+        'revisita': '5 días',
+        'bandas': ['B2', 'B3', 'B4', 'B5', 'B8'],
+        'indices': ['NDVI', 'NDRE', 'GNDVI'],
+        'icono': '🔬'
+    }
 }
 
 # ===== CONFIGURACIÓN =====
 # PARÁMETROS GEE POR CULTIVO
 PARAMETROS_CULTIVOS = {
-'PALMA ACEITERA': {
-'NITROGENO': {'min': 180, 'max': 250},
-'FOSFORO': {'min': 40, 'max': 60},
-'POTASIO': {'min': 250, 'max': 350},
-'MATERIA_ORGANICA_OPTIMA': 4.0,
-'HUMEDAD_OPTIMA': 0.35,
-'NDVI_OPTIMO': 0.85,
-'NDRE_OPTIMO': 0.5
-},
-'CACAO': {
-'NITROGENO': {'min': 100, 'max': 150},
-'FOSFORO': {'min': 30, 'max': 50},
-'POTASIO': {'min': 120, 'max': 180},
-'MATERIA_ORGANICA_OPTIMA': 5.0,
-'HUMEDAD_OPTIMA': 0.3,
-'NDVI_OPTIMO': 0.75,
-'NDRE_OPTIMO': 0.4
-},
-'BANANO': {
-'NITROGENO': {'min': 200, 'max': 300},
-'FOSFORO': {'min': 50, 'max': 80},
-'POTASIO': {'min': 300, 'max': 450},
-'MATERIA_ORGANICA_OPTIMA': 3.5,
-'HUMEDAD_OPTIMA': 0.4,
-'NDVI_OPTIMO': 0.9,
-'NDRE_OPTIMO': 0.45
-},
-'CAFÉ': {
-'NITROGENO': {'min': 120, 'max': 180},
-'FOSFORO': {'min': 25, 'max': 45},
-'POTASIO': {'min': 150, 'max': 220},
-'MATERIA_ORGANICA_OPTIMA': 4.5,
-'HUMEDAD_OPTIMA': 0.28,
-'NDVI_OPTIMO': 0.7,
-'NDRE_OPTIMO': 0.35
-}
+    'PALMA ACEITERA': {
+        'NITROGENO': {'min': 180, 'max': 250},
+        'FOSFORO': {'min': 40, 'max': 60},
+        'POTASIO': {'min': 250, 'max': 350},
+        'MATERIA_ORGANICA_OPTIMA': 4.0,
+        'HUMEDAD_OPTIMA': 0.35,
+        'NDVI_OPTIMO': 0.85,
+        'NDRE_OPTIMO': 0.5
+    },
+    'CACAO': {
+        'NITROGENO': {'min': 100, 'max': 150},
+        'FOSFORO': {'min': 30, 'max': 50},
+        'POTASIO': {'min': 120, 'max': 180},
+        'MATERIA_ORGANICA_OPTIMA': 5.0,
+        'HUMEDAD_OPTIMA': 0.3,
+        'NDVI_OPTIMO': 0.75,
+        'NDRE_OPTIMO': 0.4
+    },
+    'BANANO': {
+        'NITROGENO': {'min': 200, 'max': 300},
+        'FOSFORO': {'min': 50, 'max': 80},
+        'POTASIO': {'min': 300, 'max': 450},
+        'MATERIA_ORGANICA_OPTIMA': 3.5,
+        'HUMEDAD_OPTIMA': 0.4,
+        'NDVI_OPTIMO': 0.9,
+        'NDRE_OPTIMO': 0.45
+    },
+    'CAFÉ': {
+        'NITROGENO': {'min': 120, 'max': 180},
+        'FOSFORO': {'min': 25, 'max': 45},
+        'POTASIO': {'min': 150, 'max': 220},
+        'MATERIA_ORGANICA_OPTIMA': 4.5,
+        'HUMEDAD_OPTIMA': 0.28,
+        'NDVI_OPTIMO': 0.7,
+        'NDRE_OPTIMO': 0.35
+    }
 }
 
 # PARÁMETROS DE TEXTURA DEL SUELO POR CULTIVO
 TEXTURA_SUELO_OPTIMA = {
-'PALMA ACEITERA': {
-'textura_optima': 'Franco',
-'arena_optima': 40,
-'limo_optima': 35,
-'arcilla_optima': 25,
-'densidad_aparente_optima': 1.2,
-'porosidad_optima': 0.55
-},
-'CACAO': {
-'textura_optima': 'Franco',
-'arena_optima': 45,
-'limo_optima': 35,
-'arcilla_optima': 20,
-'densidad_aparente_optima': 1.1,
-'porosidad_optima': 0.6
-},
-'BANANO': {
-'textura_optima': 'Franco',
-'arena_optima': 50,
-'limo_optima': 30,
-'arcilla_optima': 20,
-'densidad_aparente_optima': 1.25,
-'porosidad_optima': 0.5
-},
-'CAFÉ': {
-'textura_optima': 'Franco Volcánico',
-'arena_optima': 40,
-'limo_optima': 40,
-'arcilla_optima': 20,
-'densidad_aparente_optima': 0.9,
-'porosidad_optima': 0.65
-}
+    'PALMA ACEITERA': {
+        'textura_optima': 'Franco',
+        'arena_optima': 40,
+        'limo_optima': 35,
+        'arcilla_optima': 25,
+        'densidad_aparente_optima': 1.2,
+        'porosidad_optima': 0.55
+    },
+    'CACAO': {
+        'textura_optima': 'Franco',
+        'arena_optima': 45,
+        'limo_optima': 35,
+        'arcilla_optima': 20,
+        'densidad_aparente_optima': 1.1,
+        'porosidad_optima': 0.6
+    },
+    'BANANO': {
+        'textura_optima': 'Franco',
+        'arena_optima': 50,
+        'limo_optima': 30,
+        'arcilla_optima': 20,
+        'densidad_aparente_optima': 1.25,
+        'porosidad_optima': 0.5
+    },
+    'CAFÉ': {
+        'textura_optima': 'Franco Volcánico',
+        'arena_optima': 40,
+        'limo_optima': 40,
+        'arcilla_optima': 20,
+        'densidad_aparente_optima': 0.9,
+        'porosidad_optima': 0.65
+    }
 }
 
 # CLASIFICACIÓN DE PENDIENTES
 CLASIFICACION_PENDIENTES = {
-'PLANA (0-2%)': {'min': 0, 'max': 2, 'color': '#4daf4a', 'factor_erosivo': 0.1},
-'SUAVE (2-5%)': {'min': 2, 'max': 5, 'color': '#a6d96a', 'factor_erosivo': 0.3},
-'MODERADA (5-10%)': {'min': 5, 'max': 10, 'color': '#ffffbf', 'factor_erosivo': 0.6},
-'FUERTE (10-15%)': {'min': 10, 'max': 15, 'color': '#fdae61', 'factor_erosivo': 0.8},
-'MUY FUERTE (15-25%)': {'min': 15, 'max': 25, 'color': '#f46d43', 'factor_erosivo': 0.9},
-'EXTREMA (>25%)': {'min': 25, 'max': 100, 'color': '#d73027', 'factor_erosivo': 1.0}
+    'PLANA (0-2%)': {'min': 0, 'max': 2, 'color': '#4daf4a', 'factor_erosivo': 0.1},
+    'SUAVE (2-5%)': {'min': 2, 'max': 5, 'color': '#a6d96a', 'factor_erosivo': 0.3},
+    'MODERADA (5-10%)': {'min': 5, 'max': 10, 'color': '#ffffbf', 'factor_erosivo': 0.6},
+    'FUERTE (10-15%)': {'min': 10, 'max': 15, 'color': '#fdae61', 'factor_erosivo': 0.8},
+    'MUY FUERTE (15-25%)': {'min': 15, 'max': 25, 'color': '#f46d43', 'factor_erosivo': 0.9},
+    'EXTREMA (>25%)': {'min': 25, 'max': 100, 'color': '#d73027', 'factor_erosivo': 1.0}
 }
 
 # RECOMENDACIONES POR TIPO DE TEXTURA - ACTUALIZADO A NOMENCLATURA VENEZUELA/COLOMBIA
 RECOMENDACIONES_TEXTURA = {
-'Franco': {
-'propiedades': [
-"Equilibrio arena-limo-arcilla",
-"Buena aireación y drenaje",
-"CIC intermedia-alta",
-"Retención de agua adecuada"
-],
-'limitantes': [
-"Puede compactarse con maquinaria pesada",
-"Erosión en pendientes si no hay cobertura"
-],
-'manejo': [
-"Mantener coberturas vivas o muertas",
-"Evitar tránsito excesivo de maquinaria",
-"Fertilización eficiente, sin muchas pérdidas",
-"Ideal para densidad estándar 9 x 9 m."
-]
-},
-'Franco arcilloso': {
-'propiedades': [
-"Mayor proporción de arcilla (25–35%)",
-"Alta retención de agua y nutrientes",
-"Drenaje natural lento",
-"Buena fertilidad natural"
-],
-'limitantes': [
-"Riesgo de encharcamiento",
-"Compactación fácil",
-"Menor oxigenación radicular"
-],
-'manejo': [
-"Implementar drenajes (canales y subdrenes)",
-"Subsolado previo a siembra",
-"Incorporar materia orgánica (raquis, compost)",
-"Fertilización fraccionada en lluvias intensas"
-]
-},
-'Franco arenoso-arcilloso': {
-'propiedades': [
-"Arena 40–50%, arcilla 20–30%",
-"Buen desarrollo radicular",
-"Drenaje moderado",
-"Retención de agua moderada-baja"
-],
-'limitantes': [
-"Riesgo de lixiviación de nutrientes",
-"Estrés hídrico en veranos",
-"Fertilidad moderada"
-],
-'manejo': [
-"Uso de coberturas leguminosas",
-"Aplicar mulching (raquis, hojas)",
-"Riego suplementario en sequía",
-"Fertilización fraccionada con énfasis en K y Mg"
-]
-}
+    'Franco': {
+        'propiedades': [
+            "Equilibrio arena-limo-arcilla",
+            "Buena aireación y drenaje",
+            "CIC intermedia-alta",
+            "Retención de agua adecuada"
+        ],
+        'limitantes': [
+            "Puede compactarse con maquinaria pesada",
+            "Erosión en pendientes si no hay cobertura"
+        ],
+        'manejo': [
+            "Mantener coberturas vivas o muertas",
+            "Evitar tránsito excesivo de maquinaria",
+            "Fertilización eficiente, sin muchas pérdidas",
+            "Ideal para densidad estándar 9 x 9 m."
+        ]
+    },
+    'Franco arcilloso': {
+        'propiedades': [
+            "Mayor proporción de arcilla (25–35%)",
+            "Alta retención de agua y nutrientes",
+            "Drenaje natural lento",
+            "Buena fertilidad natural"
+        ],
+        'limitantes': [
+            "Riesgo de encharcamiento",
+            "Compactación fácil",
+            "Menor oxigenación radicular"
+        ],
+        'manejo': [
+            "Implementar drenajes (canales y subdrenes)",
+            "Subsolado previo a siembra",
+            "Incorporar materia orgánica (raquis, compost)",
+            "Fertilización fraccionada en lluvias intensas"
+        ]
+    },
+    'Franco arenoso-arcilloso': {
+        'propiedades': [
+            "Arena 40–50%, arcilla 20–30%",
+            "Buen desarrollo radicular",
+            "Drenaje moderado",
+            "Retención de agua moderada-baja"
+        ],
+        'limitantes': [
+            "Riesgo de lixiviación de nutrientes",
+            "Estrés hídrico en veranos",
+            "Fertilidad moderada"
+        ],
+        'manejo': [
+            "Uso de coberturas leguminosas",
+            "Aplicar mulching (raquis, hojas)",
+            "Riego suplementario en sequía",
+            "Fertilización fraccionada con énfasis en K y Mg"
+        ]
+    }
 }
 
 # ICONOS Y COLORES POR CULTIVO
 ICONOS_CULTIVOS = {
-'PALMA ACEITERA': '🌴',
-'CACAO': '🍫',
-'BANANO': '🍌',
-'CAFÉ': '☕'
+    'PALMA ACEITERA': '🌴',
+    'CACAO': '🍫',
+    'BANANO': '🍌',
+    'CAFÉ': '☕'
 }
 COLORES_CULTIVOS = {
-'PALMA ACEITERA': '#228B22',
-'CACAO': '#654321',
-'BANANO': '#FFD700',
-'CAFÉ': '#8B4513'
+    'PALMA ACEITERA': '#228B22',
+    'CACAO': '#654321',
+    'BANANO': '#FFD700',
+    'CAFÉ': '#8B4513'
 }
 
 # PALETAS GEE MEJORADAS
 PALETAS_GEE = {
-'FERTILIDAD': ['#d73027', '#f46d43', '#fdae61', '#fee08b', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837'],
-'NITROGENO': ['#00ff00', '#80ff00', '#ffff00', '#ff8000', '#ff0000'],
-'FOSFORO': ['#0000ff', '#4040ff', '#8080ff', '#c0c0ff', '#ffffff'],
-'POTASIO': ['#4B0082', '#6A0DAD', '#8A2BE2', '#9370DB', '#D8BFD8'],
-'TEXTURA': ['#8c510a', '#d8b365', '#f6e8c3', '#c7eae5', '#5ab4ac', '#01665e'],
-'ELEVACION': ['#006837', '#1a9850', '#66bd63', '#a6d96a', '#d9ef8b', '#ffffbf', '#fee08b', '#fdae61', '#f46d43', '#d73027'],
-'PENDIENTE': ['#4daf4a', '#a6d96a', '#ffffbf', '#fdae61', '#f46d43', '#d73027']
+    'FERTILIDAD': ['#d73027', '#f46d43', '#fdae61', '#fee08b', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837'],
+    'NITROGENO': ['#00ff00', '#80ff00', '#ffff00', '#ff8000', '#ff0000'],
+    'FOSFORO': ['#0000ff', '#4040ff', '#8080ff', '#c0c0ff', '#ffffff'],
+    'POTASIO': ['#4B0082', '#6A0DAD', '#8A2BE2', '#9370DB', '#D8BFD8'],
+    'TEXTURA': ['#8c510a', '#d8b365', '#f6e8c3', '#c7eae5', '#5ab4ac', '#01665e'],
+    'ELEVACION': ['#006837', '#1a9850', '#66bd63', '#a6d96a', '#d9ef8b', '#ffffbf', '#fee08b', '#fdae61', '#f46d43', '#d73027'],
+    'PENDIENTE': ['#4daf4a', '#a6d96a', '#ffffbf', '#fdae61', '#f46d43', '#d73027']
 }
 
 # ===== INICIALIZACIÓN SEGURA DE VARIABLES DE CONFIGURACIÓN =====
@@ -2513,169 +2519,173 @@ if uploaded_file:
                             for i, rec in enumerate(recomendaciones[:5]):
                                 st.info(f"{i+1}. {rec}")
 
-                          # === SECCIÓN DE EXPORTACIÓN - REESTRUCTURADA PARA FUNCIONAR CORRECTAMENTE ===
-st.subheader("💾 EXPORTAR RESULTADOS")
+                            # ===== SECCIÓN DE EXPORTACIÓN - CORREGIDA =====
+                            st.subheader("💾 EXPORTAR RESULTADOS")
 
-# Inicializar variables en session_state si no existen
-if 'pdf_report' not in st.session_state:
-    st.session_state.pdf_report = None
-    st.session_state.docx_report = None
-    st.session_state.report_filename_base = ""
+                            # Solo mostrar opciones de exportación si hay resultados guardados
+                            if 'resultados_guardados' in st.session_state:
+                                resultados_guardados = st.session_state['resultados_guardados']
+                                gdf_analizado = resultados_guardados['gdf_analizado']
+                                area_total = resultados_guardados['area_total']
+                                analisis_tipo = resultados_guardados['analisis_tipo']
+                                cultivo = resultados_guardados['cultivo']
+                                nutriente = resultados_guardados.get('nutriente')
+                                satelite_seleccionado = resultados_guardados.get('satelite_seleccionado')
+                                indice_seleccionado = resultados_guardados.get('indice_seleccionado')
+                                mapa_buffer = resultados_guardados.get('mapa_buffer')
+                                df_power = resultados_guardados.get('df_power')
+                                
+                                # Generar estadísticas y recomendaciones
+                                estadisticas = generar_resumen_estadisticas(gdf_analizado, analisis_tipo, cultivo, df_power)
+                                recomendaciones = generar_recomendaciones_generales(gdf_analizado, analisis_tipo, cultivo)
+                                
+                                # Nombre base para archivos
+                                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                                filename_base = f"reporte_{cultivo}_{analisis_tipo}_{timestamp}"
+                                
+                                # Crear columnas para los botones de exportación
+                                col_exp1, col_exp2, col_exp3 = st.columns(3)
+                                
+                                with col_exp1:
+                                    # Exportar GeoJSON
+                                    st.markdown("**GeoJSON**")
+                                    geojson_data, nombre_geojson = exportar_a_geojson(gdf_analizado, f"parcela_{cultivo}")
+                                    if geojson_data and nombre_geojson:
+                                        st.download_button(
+                                            label="📤 Descargar GeoJSON",
+                                            data=geojson_data,
+                                            file_name=nombre_geojson,
+                                            mime="application/json",
+                                            key="geojson_download"
+                                        )
+                                
+                                with col_exp2:
+                                    st.markdown("**Reporte PDF**")
+                                    # Botón para GENERAR PDF
+                                    if st.button("📄 Generar PDF", key="generate_pdf"):
+                                        with st.spinner("Generando reporte PDF..."):
+                                            pdf_report = generar_reporte_pdf(
+                                                gdf_analizado, cultivo, analisis_tipo, area_total,
+                                                nutriente, satelite_seleccionado, indice_seleccionado,
+                                                mapa_buffer, estadisticas, recomendaciones
+                                            )
+                                            if pdf_report:
+                                                st.session_state.pdf_report = pdf_report
+                                                st.session_state.report_filename_base = filename_base
+                                                st.success("✅ PDF generado correctamente")
+                                            else:
+                                                st.error("❌ Error al generar PDF")
+                                    
+                                    # Mostrar botón de DESCARGA si el PDF está listo
+                                    if st.session_state.pdf_report is not None:
+                                        st.download_button(
+                                            label="📥 Descargar PDF",
+                                            data=st.session_state.pdf_report,
+                                            file_name=f"{st.session_state.report_filename_base}.pdf",
+                                            mime="application/pdf",
+                                            key="pdf_download"
+                                        )
+                                
+                                with col_exp3:
+                                    st.markdown("**Reporte Word**")
+                                    # Botón para GENERAR DOCX
+                                    if st.button("📝 Generar DOCX", key="generate_docx"):
+                                        with st.spinner("Generando reporte DOCX..."):
+                                            docx_report = generar_reporte_docx(
+                                                gdf_analizado, cultivo, analisis_tipo, area_total,
+                                                nutriente, satelite_seleccionado, indice_seleccionado,
+                                                mapa_buffer, estadisticas, recomendaciones
+                                            )
+                                            if docx_report:
+                                                st.session_state.docx_report = docx_report
+                                                st.session_state.report_filename_base = filename_base
+                                                st.success("✅ DOCX generado correctamente")
+                                            else:
+                                                st.error("❌ Error al generar DOCX")
+                                    
+                                    # Mostrar botón de DESCARGA si el DOCX está listo
+                                    if st.session_state.docx_report is not None:
+                                        st.download_button(
+                                            label="📥 Descargar DOCX",
+                                            data=st.session_state.docx_report,
+                                            file_name=f"{st.session_state.report_filename_base}.docx",
+                                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                            key="docx_download"
+                                        )
+                                
+                                # Exportar CSV de datos (si hay tabla de resultados)
+                                st.markdown("---")
+                                st.markdown("**Datos en CSV**")
+                                
+                                # Preparar datos para CSV según el tipo de análisis
+                                if analisis_tipo == "FERTILIDAD ACTUAL":
+                                    columnas_mostrar = ['id_zona', 'area_ha', 'npk_actual', 'ndvi', 'ndre', 'ndwi',
+                                                       'materia_organica', 'humedad_suelo']
+                                    columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
+                                    if columnas_mostrar:
+                                        tabla_resultados = gdf_analizado[columnas_mostrar].copy()
+                                        csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
+                                        
+                                        st.download_button(
+                                            label="📊 Descargar CSV de Datos",
+                                            data=csv_data,
+                                            file_name=f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv",
+                                            mime="text/csv",
+                                            key="csv_download"
+                                        )
+                                
+                                elif analisis_tipo == "RECOMENDACIONES NPK":
+                                    columnas_mostrar = ['id_zona', 'area_ha', 'valor_recomendado', 'ndvi', 'ndre', 'ndwi']
+                                    columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
+                                    if columnas_mostrar:
+                                        tabla_resultados = gdf_analizado[columnas_mostrar].copy()
+                                        csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
+                                        
+                                        st.download_button(
+                                            label="📊 Descargar CSV de Datos",
+                                            data=csv_data,
+                                            file_name=f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv",
+                                            mime="text/csv",
+                                            key="csv_download"
+                                        )
+                                
+                                elif analisis_tipo == "ANÁLISIS DE TEXTURA":
+                                    columnas_mostrar = ['id_zona', 'area_ha', 'textura_suelo', 'arena', 'limo', 'arcilla']
+                                    columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
+                                    if columnas_mostrar:
+                                        tabla_resultados = gdf_analizado[columnas_mostrar].copy()
+                                        csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
+                                        
+                                        st.download_button(
+                                            label="📊 Descargar CSV de Texturas",
+                                            data=csv_data,
+                                            file_name=f"texturas_{cultivo}_{timestamp}.csv",
+                                            mime="text/csv",
+                                            key="texturas_csv_download"
+                                        )
+                                
+                                # Botón para limpiar reportes generados
+                                if st.session_state.pdf_report or st.session_state.docx_report:
+                                    st.markdown("---")
+                                    if st.button("🗑️ Limpiar Reportes Generados", key="clear_reports"):
+                                        st.session_state.pdf_report = None
+                                        st.session_state.docx_report = None
+                                        st.session_state.report_filename_base = ""
+                                        st.success("Reportes limpiados correctamente")
+                                        st.rerun()
+                                        
+                            else:
+                                st.info("⚠️ Ejecuta primero el análisis para habilitar la exportación.")
 
-# Solo mostrar opciones de exportación si hay resultados guardados
-if 'resultados_guardados' in st.session_state:
-    resultados_guardados = st.session_state['resultados_guardados']
-    gdf_analizado = resultados_guardados['gdf_analizado']
-    area_total = resultados_guardados['area_total']
-    analisis_tipo = resultados_guardados['analisis_tipo']
-    cultivo = resultados_guardados['cultivo']
-    nutriente = resultados_guardados.get('nutriente')
-    satelite_seleccionado = resultados_guardados.get('satelite_seleccionado')
-    indice_seleccionado = resultados_guardados.get('indice_seleccionado')
-    mapa_buffer = resultados_guardados.get('mapa_buffer')
-    df_power = resultados_guardados.get('df_power')
-    
-    # Generar estadísticas y recomendaciones
-    estadisticas = generar_resumen_estadisticas(gdf_analizado, analisis_tipo, cultivo, df_power)
-    recomendaciones = generar_recomendaciones_generales(gdf_analizado, analisis_tipo, cultivo)
-    
-    # Nombre base para archivos
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename_base = f"reporte_{cultivo}_{analisis_tipo}_{timestamp}"
-    
-    # Crear columnas para los botones de exportación
-    col_exp1, col_exp2, col_exp3 = st.columns(3)
-    
-    with col_exp1:
-        # Exportar GeoJSON
-        st.markdown("**GeoJSON**")
-        geojson_data, nombre_geojson = exportar_a_geojson(gdf_analizado, f"parcela_{cultivo}")
-        if geojson_data and nombre_geojson:
-            st.download_button(
-                label="📤 Descargar GeoJSON",
-                data=geojson_data,
-                file_name=nombre_geojson,
-                mime="application/json",
-                key="geojson_download"
-            )
-    
-    with col_exp2:
-        st.markdown("**Reporte PDF**")
-        # Botón para GENERAR PDF
-        if st.button("📄 Generar PDF", key="generate_pdf"):
-            with st.spinner("Generando reporte PDF..."):
-                pdf_report = generar_reporte_pdf(
-                    gdf_analizado, cultivo, analisis_tipo, area_total,
-                    nutriente, satelite_seleccionado, indice_seleccionado,
-                    mapa_buffer, estadisticas, recomendaciones
-                )
-                if pdf_report:
-                    st.session_state.pdf_report = pdf_report
-                    st.session_state.report_filename_base = filename_base
-                    st.success("✅ PDF generado correctamente")
-                else:
-                    st.error("❌ Error al generar PDF")
-        
-        # Mostrar botón de DESCARGA si el PDF está listo
-        if st.session_state.pdf_report is not None:
-            st.download_button(
-                label="📥 Descargar PDF",
-                data=st.session_state.pdf_report,
-                file_name=f"{st.session_state.report_filename_base}.pdf",
-                mime="application/pdf",
-                key="pdf_download"
-            )
-    
-    with col_exp3:
-        st.markdown("**Reporte Word**")
-        # Botón para GENERAR DOCX
-        if st.button("📝 Generar DOCX", key="generate_docx"):
-            with st.spinner("Generando reporte DOCX..."):
-                docx_report = generar_reporte_docx(
-                    gdf_analizado, cultivo, analisis_tipo, area_total,
-                    nutriente, satelite_seleccionado, indice_seleccionado,
-                    mapa_buffer, estadisticas, recomendaciones
-                )
-                if docx_report:
-                    st.session_state.docx_report = docx_report
-                    st.session_state.report_filename_base = filename_base
-                    st.success("✅ DOCX generado correctamente")
-                else:
-                    st.error("❌ Error al generar DOCX")
-        
-        # Mostrar botón de DESCARGA si el DOCX está listo
-        if st.session_state.docx_report is not None:
-            st.download_button(
-                label="📥 Descargar DOCX",
-                data=st.session_state.docx_report,
-                file_name=f"{st.session_state.report_filename_base}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                key="docx_download"
-            )
-    
-    # Exportar CSV de datos (si hay tabla de resultados)
-    st.markdown("---")
-    st.markdown("**Datos en CSV**")
-    
-    # Preparar datos para CSV según el tipo de análisis
-    if analisis_tipo == "FERTILIDAD ACTUAL":
-        columnas_mostrar = ['id_zona', 'area_ha', 'npk_actual', 'ndvi', 'ndre', 'ndwi',
-                           'materia_organica', 'humedad_suelo']
-        columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
-        if columnas_mostrar:
-            tabla_resultados = gdf_analizado[columnas_mostrar].copy()
-            csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
-            
-            st.download_button(
-                label="📊 Descargar CSV de Datos",
-                data=csv_data,
-                file_name=f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv",
-                mime="text/csv",
-                key="csv_download"
-            )
-    
-    elif analisis_tipo == "RECOMENDACIONES NPK":
-        columnas_mostrar = ['id_zona', 'area_ha', 'valor_recomendado', 'ndvi', 'ndre', 'ndwi']
-        columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
-        if columnas_mostrar:
-            tabla_resultados = gdf_analizado[columnas_mostrar].copy()
-            csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
-            
-            st.download_button(
-                label="📊 Descargar CSV de Datos",
-                data=csv_data,
-                file_name=f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv",
-                mime="text/csv",
-                key="csv_download"
-            )
-    
-    elif analisis_tipo == "ANÁLISIS DE TEXTURA":
-        columnas_mostrar = ['id_zona', 'area_ha', 'textura_suelo', 'arena', 'limo', 'arcilla']
-        columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
-        if columnas_mostrar:
-            tabla_resultados = gdf_analizado[columnas_mostrar].copy()
-            csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
-            
-            st.download_button(
-                label="📊 Descargar CSV de Texturas",
-                data=csv_data,
-                file_name=f"texturas_{cultivo}_{timestamp}.csv",
-                mime="text/csv",
-                key="texturas_csv_download"
-            )
-    
-    # Botón para limpiar reportes generados
-    if st.session_state.pdf_report or st.session_state.docx_report:
-        st.markdown("---")
-        if st.button("🗑️ Limpiar Reportes Generados", key="clear_reports"):
-            st.session_state.pdf_report = None
-            st.session_state.docx_report = None
-            st.session_state.report_filename_base = ""
-            st.success("Reportes limpiados correctamente")
-            st.rerun()
-            
+            else:
+                st.error("❌ Error al cargar la parcela. Verifica el formato del archivo.")
+        except Exception as e:
+            st.error(f"❌ Error en el análisis: {str(e)}")
+            import traceback
+            st.error(f"Detalle: {traceback.format_exc()}")
 else:
-    st.info("⚠️ Ejecuta primero el análisis para habilitar la exportación.")
+    st.info("👈 Por favor, sube un archivo de parcela para comenzar el análisis.")
+
 # ===== PIE DE PÁGINA ESTILIZADO =====
 st.markdown("---")
 col_footer1, col_footer2, col_footer3 = st.columns(3)
@@ -2703,7 +2713,7 @@ with col_footer3:
 """)
 st.markdown(
     '<div style="text-align: center; color: #94a3b8; font-size: 0.9em; margin-top: 2em;">'
-    '© 2024 Analizador Multi-Cultivo Satelital. Todos los derechos reservados.'
+    '© 2026 Analizador Multi-Cultivo Satelital. Todos los derechos reservados.'
     '</div>',
     unsafe_allow_html=True
 )
