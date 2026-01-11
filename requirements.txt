@@ -4,7 +4,7 @@ pandas
 numpy
 matplotlib
 shapely
-fpdf2
+fpdf
 python-docx
 geojson
 requests
