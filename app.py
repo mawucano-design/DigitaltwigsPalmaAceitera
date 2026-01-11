@@ -33,8 +33,6 @@ if 'pdf_report' not in st.session_state:
     st.session_state.pdf_report = None
     st.session_state.docx_report = None
     st.session_state.report_filename_base = ""
-if 'resultados_guardados' not in st.session_state:
-    st.session_state.resultados_guardados = None
 
 # === ESTILOS PERSONALIZADOS - VERSIÓN PREMIUM MODERNA ===
 st.markdown("""
@@ -2258,7 +2256,7 @@ if uploaded_file:
                         )
                     # GUARDAR RESULTADOS EN SESSION STATE
                     if resultados and resultados['exitoso']:
-                        st.session_state.resultados_guardados = {
+                        st.session_state['resultados_guardados'] = {
                             'gdf_analizado': resultados['gdf_analizado'],
                             'analisis_tipo': analisis_tipo,
                             'cultivo': cultivo,
@@ -2280,7 +2278,7 @@ if uploaded_file:
                             X, Y, Z, _ = generar_dem_sintetico(gdf, resolucion_dem)
                             pendiente_grid = calcular_pendiente_simple(X, Y, Z, resolucion_dem)
                             curvas, elevaciones = generar_curvas_nivel_simple(X, Y, Z, intervalo_curvas, gdf)
-                            st.session_state.resultados_guardados.update({
+                            st.session_state['resultados_guardados'].update({
                                 'X': X, 'Y': Y, 'Z': Z, 'pendiente_grid': pendiente_grid
                             })
                             mostrar_resultados_curvas_nivel(X, Y, Z, pendiente_grid, curvas, elevaciones, gdf, cultivo, resultados['area_total'])
@@ -2511,104 +2509,182 @@ if uploaded_file:
                                     tabla_resultados.columns = ['Zona', 'Área (ha)', f'{nutriente} Recomendado (kg/ha)',
                                                                 'NDVI', 'NDRE', 'NDWI']
                                     st.dataframe(tabla_resultados)
-                            # Mostrar recomendaciones
-                            st.subheader("💡 RECOMENDACIONES DE MANEJO")
+                            # Generar estadísticas y recomendaciones
+                            estadisticas = generar_resumen_estadisticas(
+                                gdf_analizado, analisis_tipo, cultivo, resultados.get('df_power'))
                             recomendaciones = generar_recomendaciones_generales(
                                 gdf_analizado, analisis_tipo, cultivo)
+                            # Mostrar recomendaciones
+                            st.subheader("💡 RECOMENDACIONES DE MANEJO")
                             for i, rec in enumerate(recomendaciones[:5]):
                                 st.info(f"{i+1}. {rec}")
-                            
-                            # ACTUALIZAR RESULTADOS GUARDADOS CON DATOS COMPLETOS
-                            st.session_state.resultados_guardados.update({
-                                'gdf_analizado': gdf_analizado,
-                                'df_power': resultados.get('df_power'),
-                                'mapa_buffer': mapa_buffer
-                            })
-                            
-                          # ===== EXPORTACIÓN PERSISTENTE =====
-if 'resultados_guardados' in st.session_state:
-    res = st.session_state['resultados_guardados']
-    st.markdown("---")
-    st.subheader("📤 EXPORTAR RESULTADOS")
-    col_exp1, col_exp2, col_exp3, col_exp4 = st.columns(4)
-    with col_exp1:
-        if st.button("🗺️ Exportar GeoJSON", key="export_geojson"):
-            geojson_data, nombre_archivo = exportar_a_geojson(res['gdf_analizado'], f"parcela_{res['cultivo']}")
-            if geojson_data:
-                st.download_button(
-                    label="📥 Descargar GeoJSON",
-                    data=geojson_data,
-                    file_name=nombre_archivo,
-                    mime="application/json",
-                    key="geojson_download"
-                )
-    with col_exp2:
-        if st.button("📄 Generar Reporte PDF", key="export_pdf"):
-            with st.spinner("Generando PDF..."):
-                estadisticas = generar_resumen_estadisticas(
-                    res['gdf_analizado'],
-                    res['analisis_tipo'],
-                    res['cultivo'],
-                    res.get('df_power')
-                )
-                recomendaciones = generar_recomendaciones_generales(res['gdf_analizado'], res['analisis_tipo'], res['cultivo'])
-                mapa_buffer = res.get('mapa_buffer')
-                pdf_buffer = generar_reporte_pdf(
-                    res['gdf_analizado'], res['cultivo'], res['analisis_tipo'], res['area_total'],
-                    res.get('nutriente'), res.get('satelite_seleccionado'), res.get('indice_seleccionado'),
-                    mapa_buffer, estadisticas, recomendaciones
-                )
-                if pdf_buffer:
-                    st.download_button(
-                        label="📥 Descargar PDF",
-                        data=pdf_buffer,
-                        file_name=f"reporte_{res['cultivo']}_{res['analisis_tipo'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                        mime="application/pdf",
-                        key="pdf_download"
-                    )
-                else:
-                    st.error("❌ No se pudo generar el reporte PDF")
-    with col_exp3:
-        if st.button("📝 Generar Reporte DOCX", key="export_docx"):
-            with st.spinner("Generando DOCX..."):
-                estadisticas = generar_resumen_estadisticas(
-                    res['gdf_analizado'],
-                    res['analisis_tipo'],
-                    res['cultivo'],
-                    res.get('df_power')
-                )
-                recomendaciones = generar_recomendaciones_generales(res['gdf_analizado'], res['analisis_tipo'], res['cultivo'])
-                mapa_buffer = res.get('mapa_buffer')
-                docx_buffer = generar_reporte_docx(
-                    res['gdf_analizado'], res['cultivo'], res['analisis_tipo'], res['area_total'],
-                    res.get('nutriente'), res.get('satelite_seleccionado'), res.get('indice_seleccionado'),
-                    mapa_buffer, estadisticas, recomendaciones
-                )
-                if docx_buffer:
-                    st.download_button(
-                        label="📥 Descargar DOCX",
-                        data=docx_buffer,
-                        file_name=f"reporte_{res['cultivo']}_{res['analisis_tipo'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        key="docx_download"
-                    )
-                else:
-                    st.error("❌ No se pudo generar el reporte DOCX")
-    with col_exp4:
-        if st.button("📊 Exportar CSV", key="export_csv"):
-            if res['gdf_analizado'] is not None:
-                if 'geometry' in res['gdf_analizado'].columns:
-                    df_export = res['gdf_analizado'].drop(columns=['geometry']).copy()
-                else:
-                    df_export = res['gdf_analizado'].copy()
-                csv = df_export.to_csv(index=False)
-                st.download_button(
-                    label="📥 Descargar CSV",
-                    data=csv,
-                    file_name=f"datos_{res['cultivo']}_{res['analisis_tipo'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                    mime="text/csv",
-                    key="csv_download"
-                )
+
+                            # ===== SECCIÓN DE EXPORTACIÓN - CORREGIDA =====
+                            st.subheader("💾 EXPORTAR RESULTADOS")
+
+                            # Solo mostrar opciones de exportación si hay resultados guardados
+                            if 'resultados_guardados' in st.session_state:
+                                resultados_guardados = st.session_state['resultados_guardados']
+                                gdf_analizado = resultados_guardados['gdf_analizado']
+                                area_total = resultados_guardados['area_total']
+                                analisis_tipo = resultados_guardados['analisis_tipo']
+                                cultivo = resultados_guardados['cultivo']
+                                nutriente = resultados_guardados.get('nutriente')
+                                satelite_seleccionado = resultados_guardados.get('satelite_seleccionado')
+                                indice_seleccionado = resultados_guardados.get('indice_seleccionado')
+                                mapa_buffer = resultados_guardados.get('mapa_buffer')
+                                df_power = resultados_guardados.get('df_power')
+                                
+                                # Generar estadísticas y recomendaciones
+                                estadisticas = generar_resumen_estadisticas(gdf_analizado, analisis_tipo, cultivo, df_power)
+                                recomendaciones = generar_recomendaciones_generales(gdf_analizado, analisis_tipo, cultivo)
+                                
+                                # Nombre base para archivos
+                                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                                filename_base = f"reporte_{cultivo}_{analisis_tipo}_{timestamp}"
+                                
+                                # Crear columnas para los botones de exportación
+                                col_exp1, col_exp2, col_exp3 = st.columns(3)
+                                
+                                with col_exp1:
+                                    # Exportar GeoJSON
+                                    st.markdown("**GeoJSON**")
+                                    geojson_data, nombre_geojson = exportar_a_geojson(gdf_analizado, f"parcela_{cultivo}")
+                                    if geojson_data and nombre_geojson:
+                                        st.download_button(
+                                            label="📤 Descargar GeoJSON",
+                                            data=geojson_data,
+                                            file_name=nombre_geojson,
+                                            mime="application/json",
+                                            key="geojson_download"
+                                        )
+                                
+                                with col_exp2:
+                                    st.markdown("**Reporte PDF**")
+                                    # Botón para GENERAR PDF
+                                    if st.button("📄 Generar PDF", key="generate_pdf"):
+                                        with st.spinner("Generando reporte PDF..."):
+                                            pdf_report = generar_reporte_pdf(
+                                                gdf_analizado, cultivo, analisis_tipo, area_total,
+                                                nutriente, satelite_seleccionado, indice_seleccionado,
+                                                mapa_buffer, estadisticas, recomendaciones
+                                            )
+                                            if pdf_report:
+                                                st.session_state.pdf_report = pdf_report
+                                                st.session_state.report_filename_base = filename_base
+                                                st.success("✅ PDF generado correctamente")
+                                            else:
+                                                st.error("❌ Error al generar PDF")
+                                    
+                                    # Mostrar botón de DESCARGA si el PDF está listo
+                                    if st.session_state.pdf_report is not None:
+                                        st.download_button(
+                                            label="📥 Descargar PDF",
+                                            data=st.session_state.pdf_report,
+                                            file_name=f"{st.session_state.report_filename_base}.pdf",
+                                            mime="application/pdf",
+                                            key="pdf_download"
+                                        )
+                                
+                                with col_exp3:
+                                    st.markdown("**Reporte Word**")
+                                    # Botón para GENERAR DOCX
+                                    if st.button("📝 Generar DOCX", key="generate_docx"):
+                                        with st.spinner("Generando reporte DOCX..."):
+                                            docx_report = generar_reporte_docx(
+                                                gdf_analizado, cultivo, analisis_tipo, area_total,
+                                                nutriente, satelite_seleccionado, indice_seleccionado,
+                                                mapa_buffer, estadisticas, recomendaciones
+                                            )
+                                            if docx_report:
+                                                st.session_state.docx_report = docx_report
+                                                st.session_state.report_filename_base = filename_base
+                                                st.success("✅ DOCX generado correctamente")
+                                            else:
+                                                st.error("❌ Error al generar DOCX")
+                                    
+                                    # Mostrar botón de DESCARGA si el DOCX está listo
+                                    if st.session_state.docx_report is not None:
+                                        st.download_button(
+                                            label="📥 Descargar DOCX",
+                                            data=st.session_state.docx_report,
+                                            file_name=f"{st.session_state.report_filename_base}.docx",
+                                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                            key="docx_download"
+                                        )
+                                
+                                # Exportar CSV de datos (si hay tabla de resultados)
+                                st.markdown("---")
+                                st.markdown("**Datos en CSV**")
+                                
+                                # Preparar datos para CSV según el tipo de análisis
+                                if analisis_tipo == "FERTILIDAD ACTUAL":
+                                    columnas_mostrar = ['id_zona', 'area_ha', 'npk_actual', 'ndvi', 'ndre', 'ndwi',
+                                                       'materia_organica', 'humedad_suelo']
+                                    columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
+                                    if columnas_mostrar:
+                                        tabla_resultados = gdf_analizado[columnas_mostrar].copy()
+                                        csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
+                                        
+                                        st.download_button(
+                                            label="📊 Descargar CSV de Datos",
+                                            data=csv_data,
+                                            file_name=f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv",
+                                            mime="text/csv",
+                                            key="csv_download"
+                                        )
+                                
+                                elif analisis_tipo == "RECOMENDACIONES NPK":
+                                    columnas_mostrar = ['id_zona', 'area_ha', 'valor_recomendado', 'ndvi', 'ndre', 'ndwi']
+                                    columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
+                                    if columnas_mostrar:
+                                        tabla_resultados = gdf_analizado[columnas_mostrar].copy()
+                                        csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
+                                        
+                                        st.download_button(
+                                            label="📊 Descargar CSV de Datos",
+                                            data=csv_data,
+                                            file_name=f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv",
+                                            mime="text/csv",
+                                            key="csv_download"
+                                        )
+                                
+                                elif analisis_tipo == "ANÁLISIS DE TEXTURA":
+                                    columnas_mostrar = ['id_zona', 'area_ha', 'textura_suelo', 'arena', 'limo', 'arcilla']
+                                    columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
+                                    if columnas_mostrar:
+                                        tabla_resultados = gdf_analizado[columnas_mostrar].copy()
+                                        csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
+                                        
+                                        st.download_button(
+                                            label="📊 Descargar CSV de Texturas",
+                                            data=csv_data,
+                                            file_name=f"texturas_{cultivo}_{timestamp}.csv",
+                                            mime="text/csv",
+                                            key="texturas_csv_download"
+                                        )
+                                
+                                # Botón para limpiar reportes generados
+                                if st.session_state.pdf_report or st.session_state.docx_report:
+                                    st.markdown("---")
+                                    if st.button("🗑️ Limpiar Reportes Generados", key="clear_reports"):
+                                        st.session_state.pdf_report = None
+                                        st.session_state.docx_report = None
+                                        st.session_state.report_filename_base = ""
+                                        st.success("Reportes limpiados correctamente")
+                                        st.rerun()
+                                        
+                            else:
+                                st.info("⚠️ Ejecuta primero el análisis para habilitar la exportación.")
+
+            else:
+                st.error("❌ Error al cargar la parcela. Verifica el formato del archivo.")
+        except Exception as e:
+            st.error(f"❌ Error en el análisis: {str(e)}")
+            import traceback
+            st.error(f"Detalle: {traceback.format_exc()}")
+else:
+    st.info("👈 Por favor, sube un archivo de parcela para comenzar el análisis.")
 
 # ===== PIE DE PÁGINA ESTILIZADO =====
 st.markdown("---")
