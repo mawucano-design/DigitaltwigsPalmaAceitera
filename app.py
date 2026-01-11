@@ -629,14 +629,6 @@ PALETAS_GEE = {
 'PENDIENTE': ['#4daf4a', '#a6d96a', '#ffffbf', '#fdae61', '#f46d43', '#d73027']
 }
 
-# URLs de imágenes para sidebar
-IMAGENES_CULTIVOS = {
-'PALMA ACEITERA': 'https://images.unsplash.com/photo-1597981309443-6e2d2a4d9c3f?auto=format&fit=crop&w=200&h=150&q=80',
-'CACAO': 'https://images.unsplash.com/photo-1606312619070-d48b4c652a52?auto=format&fit=crop&w=200&h=150&q=80',
-'BANANO': 'https://images.unsplash.com/photo-1587479535213-1f3c862e2f1e?auto=format&fit=crop&w=200&h=150&q=80',
-'CAFÉ': 'https://images.unsplash.com/photo-1495498882177-2a843e5c2a36?auto=format&fit=crop&w=200&h=150&q=80'
-}
-
 # ===== INICIALIZACIÓN SEGURA DE VARIABLES DE CONFIGURACIÓN =====
 nutriente = None
 satelite_seleccionado = "SENTINEL-2"
