@@ -630,7 +630,6 @@ resolucion_dem = 10.0
 with st.sidebar:
     st.markdown('<div class="sidebar-title">⚙️ CONFIGURACIÓN</div>', unsafe_allow_html=True)
     cultivo = st.selectbox("Cultivo:", ["PALMA ACEITERA", "CACAO", "BANANO", "CAFÉ"])
-    # Imagenes REMOVIDAS
     analisis_tipo = st.selectbox("Tipo de Análisis:", ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK", "ANÁLISIS DE TEXTURA", "ANÁLISIS DE CURVAS DE NIVEL"])
     if analisis_tipo == "RECOMENDACIONES NPK":
         nutriente = st.selectbox("Nutriente:", ["NITRÓGENO", "FÓSFORO", "POTASIO"])
@@ -979,9 +978,12 @@ def obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin):
         url = "https://power.larc.nasa.gov/api/temporal/daily/point"
         response = requests.get(url, params=params, timeout=15)
         data = response.json()
-        if 'properties' not in data:
+        
+        # CORRECCIÓN: Esta línea estaba incompleta
+        if 'properties' not in data or 'parameter' not in data['properties']:
             st.warning("⚠️ No se obtuvieron datos de NASA POWER (fuera de rango o sin conexión).")
             return None
+            
         series = data['properties']['parameter']
         df_power = pd.DataFrame({
             'fecha': pd.to_datetime(list(series['ALLSKY_SFC_SW_DWN'].keys())),
@@ -2546,7 +2548,7 @@ if uploaded_file:
                                 with col_exp1:
                                     # Exportar GeoJSON
                                     geojson_data, nombre_geojson = exportar_a_geojson(gdf_analizado, f"parcela_{cultivo}")
-                                    if geojson_
+                                    if geojson_data is not None and nombre_geojson is not None:
                                         st.download_button(
                                             label="📤 Descargar GeoJSON",
                                             data=geojson_data,
