@@ -2715,3 +2715,4 @@ st.markdown(
     '© 2026 Analizador Multi-Cultivo Satelital. Todos los derechos reservados.'
     '</div>',
     unsafe_allow_html=True
+)
