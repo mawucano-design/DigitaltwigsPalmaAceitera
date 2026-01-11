@@ -33,6 +33,8 @@ if 'pdf_report' not in st.session_state:
     st.session_state.pdf_report = None
     st.session_state.docx_report = None
     st.session_state.report_filename_base = ""
+if 'resultados_guardados' not in st.session_state:
+    st.session_state.resultados_guardados = None
 
 # === ESTILOS PERSONALIZADOS - VERSIÓN PREMIUM MODERNA ===
 st.markdown("""
@@ -2256,7 +2258,7 @@ if uploaded_file:
                         )
                     # GUARDAR RESULTADOS EN SESSION STATE
                     if resultados and resultados['exitoso']:
-                        st.session_state['resultados_guardados'] = {
+                        st.session_state.resultados_guardados = {
                             'gdf_analizado': resultados['gdf_analizado'],
                             'analisis_tipo': analisis_tipo,
                             'cultivo': cultivo,
@@ -2278,7 +2280,7 @@ if uploaded_file:
                             X, Y, Z, _ = generar_dem_sintetico(gdf, resolucion_dem)
                             pendiente_grid = calcular_pendiente_simple(X, Y, Z, resolucion_dem)
                             curvas, elevaciones = generar_curvas_nivel_simple(X, Y, Z, intervalo_curvas, gdf)
-                            st.session_state['resultados_guardados'].update({
+                            st.session_state.resultados_guardados.update({
                                 'X': X, 'Y': Y, 'Z': Z, 'pendiente_grid': pendiente_grid
                             })
                             mostrar_resultados_curvas_nivel(X, Y, Z, pendiente_grid, curvas, elevaciones, gdf, cultivo, resultados['area_total'])
@@ -2509,22 +2511,26 @@ if uploaded_file:
                                     tabla_resultados.columns = ['Zona', 'Área (ha)', f'{nutriente} Recomendado (kg/ha)',
                                                                 'NDVI', 'NDRE', 'NDWI']
                                     st.dataframe(tabla_resultados)
-                            # Generar estadísticas y recomendaciones
-                            estadisticas = generar_resumen_estadisticas(
-                                gdf_analizado, analisis_tipo, cultivo, resultados.get('df_power'))
-                            recomendaciones = generar_recomendaciones_generales(
-                                gdf_analizado, analisis_tipo, cultivo)
                             # Mostrar recomendaciones
                             st.subheader("💡 RECOMENDACIONES DE MANEJO")
+                            recomendaciones = generar_recomendaciones_generales(
+                                gdf_analizado, analisis_tipo, cultivo)
                             for i, rec in enumerate(recomendaciones[:5]):
                                 st.info(f"{i+1}. {rec}")
-
-                            # ===== SECCIÓN DE EXPORTACIÓN - CORREGIDA =====
+                            
+                            # ACTUALIZAR RESULTADOS GUARDADOS CON DATOS COMPLETOS
+                            st.session_state.resultados_guardados.update({
+                                'gdf_analizado': gdf_analizado,
+                                'df_power': resultados.get('df_power'),
+                                'mapa_buffer': mapa_buffer
+                            })
+                            
+                            # ===== SECCIÓN DE EXPORTACIÓN ÚNICA Y CORREGIDA =====
                             st.subheader("💾 EXPORTAR RESULTADOS")
-
-                            # Solo mostrar opciones de exportación si hay resultados guardados
-                            if 'resultados_guardados' in st.session_state:
-                                resultados_guardados = st.session_state['resultados_guardados']
+                            
+                            # Verificar que hay resultados guardados
+                            if st.session_state.resultados_guardados is not None:
+                                resultados_guardados = st.session_state.resultados_guardados
                                 gdf_analizado = resultados_guardados['gdf_analizado']
                                 area_total = resultados_guardados['area_total']
                                 analisis_tipo = resultados_guardados['analisis_tipo']
@@ -2573,6 +2579,7 @@ if uploaded_file:
                                                 st.session_state.pdf_report = pdf_report
                                                 st.session_state.report_filename_base = filename_base
                                                 st.success("✅ PDF generado correctamente")
+                                                st.rerun()
                                             else:
                                                 st.error("❌ Error al generar PDF")
                                     
@@ -2600,6 +2607,7 @@ if uploaded_file:
                                                 st.session_state.docx_report = docx_report
                                                 st.session_state.report_filename_base = filename_base
                                                 st.success("✅ DOCX generado correctamente")
+                                                st.rerun()
                                             else:
                                                 st.error("❌ Error al generar DOCX")
                                     
@@ -2613,11 +2621,14 @@ if uploaded_file:
                                             key="docx_download"
                                         )
                                 
-                                # Exportar CSV de datos (si hay tabla de resultados)
+                                # Exportar CSV de datos
                                 st.markdown("---")
                                 st.markdown("**Datos en CSV**")
                                 
                                 # Preparar datos para CSV según el tipo de análisis
+                                csv_data = None
+                                file_name = None
+                                
                                 if analisis_tipo == "FERTILIDAD ACTUAL":
                                     columnas_mostrar = ['id_zona', 'area_ha', 'npk_actual', 'ndvi', 'ndre', 'ndwi',
                                                        'materia_organica', 'humedad_suelo']
@@ -2625,14 +2636,7 @@ if uploaded_file:
                                     if columnas_mostrar:
                                         tabla_resultados = gdf_analizado[columnas_mostrar].copy()
                                         csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
-                                        
-                                        st.download_button(
-                                            label="📊 Descargar CSV de Datos",
-                                            data=csv_data,
-                                            file_name=f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv",
-                                            mime="text/csv",
-                                            key="csv_download"
-                                        )
+                                        file_name = f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv"
                                 
                                 elif analisis_tipo == "RECOMENDACIONES NPK":
                                     columnas_mostrar = ['id_zona', 'area_ha', 'valor_recomendado', 'ndvi', 'ndre', 'ndwi']
@@ -2640,14 +2644,7 @@ if uploaded_file:
                                     if columnas_mostrar:
                                         tabla_resultados = gdf_analizado[columnas_mostrar].copy()
                                         csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
-                                        
-                                        st.download_button(
-                                            label="📊 Descargar CSV de Datos",
-                                            data=csv_data,
-                                            file_name=f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv",
-                                            mime="text/csv",
-                                            key="csv_download"
-                                        )
+                                        file_name = f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv"
                                 
                                 elif analisis_tipo == "ANÁLISIS DE TEXTURA":
                                     columnas_mostrar = ['id_zona', 'area_ha', 'textura_suelo', 'arena', 'limo', 'arcilla']
@@ -2655,14 +2652,16 @@ if uploaded_file:
                                     if columnas_mostrar:
                                         tabla_resultados = gdf_analizado[columnas_mostrar].copy()
                                         csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
-                                        
-                                        st.download_button(
-                                            label="📊 Descargar CSV de Texturas",
-                                            data=csv_data,
-                                            file_name=f"texturas_{cultivo}_{timestamp}.csv",
-                                            mime="text/csv",
-                                            key="texturas_csv_download"
-                                        )
+                                        file_name = f"texturas_{cultivo}_{timestamp}.csv"
+                                
+                                if csv_data and file_name:
+                                    st.download_button(
+                                        label="📊 Descargar CSV de Datos",
+                                        data=csv_data,
+                                        file_name=file_name,
+                                        mime="text/csv",
+                                        key="csv_download"
+                                    )
                                 
                                 # Botón para limpiar reportes generados
                                 if st.session_state.pdf_report or st.session_state.docx_report:
@@ -2716,4 +2715,3 @@ st.markdown(
     '© 2026 Analizador Multi-Cultivo Satelital. Todos los derechos reservados.'
     '</div>',
     unsafe_allow_html=True
-)
