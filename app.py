@@ -1442,7 +1442,44 @@ def limpiar_texto_para_pdf(texto):
         texto = texto.replace(original, reemplazo)
     # Eliminar caracteres no ASCII
     texto = texto.encode('ascii', 'ignore').decode('ascii')
+    # Dividir líneas muy largas
+    if len(texto) > 150:
+        palabras = texto.split()
+        lineas = []
+        linea_actual = ""
+        for palabra in palabras:
+            if len(linea_actual) + len(palabra) + 1 <= 100:
+                linea_actual += " " + palabra if linea_actual else palabra
+            else:
+                if linea_actual:
+                    lineas.append(linea_actual)
+                linea_actual = palabra
+        if linea_actual:
+            lineas.append(linea_actual)
+        texto = "\n".join(lineas)
     return texto
+
+def dividir_texto_largo(texto, max_len=100):
+    """Divide texto largo en líneas más cortas para evitar errores en PDF."""
+    if len(texto) <= max_len:
+        return [texto]
+    
+    palabras = texto.split()
+    lineas = []
+    linea_actual = ""
+    
+    for palabra in palabras:
+        if len(linea_actual) + len(palabra) + 1 <= max_len:
+            linea_actual += " " + palabra if linea_actual else palabra
+        else:
+            if linea_actual:
+                lineas.append(linea_actual)
+            linea_actual = palabra
+    
+    if linea_actual:
+        lineas.append(linea_actual)
+    
+    return lineas
 
 def generar_reporte_pdf(gdf_analizado, cultivo, analisis_tipo, area_total,
                        nutriente=None, satelite=None, indice=None,
@@ -1451,41 +1488,64 @@ def generar_reporte_pdf(gdf_analizado, cultivo, analisis_tipo, area_total,
         pdf = FPDF()
         pdf.add_page()
         pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.set_font('Arial', '', 12)
+        
+        # Configurar márgenes más pequeños
+        pdf.set_left_margin(10)
+        pdf.set_right_margin(10)
+        
+        # Título principal
         pdf.set_font('Arial', 'B', 16)
-        pdf.cell(0, 10, limpiar_texto_para_pdf(f'REPORTE DE ANÁLISIS AGRÍCOLA - {cultivo}'), 0, 1, 'C')
+        titulo = limpiar_texto_para_pdf(f'REPORTE DE ANÁLISIS AGRÍCOLA - {cultivo}')
+        pdf.cell(0, 10, titulo, 0, 1, 'C')
+        
+        # Subtítulos
         pdf.set_font('Arial', '', 12)
-        pdf.cell(0, 10, limpiar_texto_para_pdf(f'Tipo de Análisis: {analisis_tipo}'), 0, 1, 'C')
-        pdf.cell(0, 10, limpiar_texto_para_pdf(f'Fecha: {datetime.now().strftime("%d/%m/%Y %H:%M")}'), 0, 1, 'C')
-        pdf.ln(10)
+        pdf.cell(0, 8, limpiar_texto_para_pdf(f'Tipo de Análisis: {analisis_tipo}'), 0, 1, 'C')
+        pdf.cell(0, 8, limpiar_texto_para_pdf(f'Fecha: {datetime.now().strftime("%d/%m/%Y %H:%M")}'), 0, 1, 'C')
+        pdf.ln(5)
+        
+        # 1. INFORMACIÓN GENERAL
         pdf.set_font('Arial', 'B', 14)
         pdf.cell(0, 10, '1. INFORMACIÓN GENERAL', 0, 1)
-        pdf.set_font('Arial', '', 12)
+        pdf.set_font('Arial', '', 11)
+        
         info_general = f"""Cultivo: {cultivo}
 Área Total: {area_total:.2f} ha
 Zonas Analizadas: {len(gdf_analizado)}
 Tipo de Análisis: {analisis_tipo}"""
+        
         if satelite:
             info_general += f"\nSatélite: {satelite}"
         if indice:
             info_general += f"\nÍndice: {indice}"
         if nutriente:
             info_general += f"\nNutriente Analizado: {nutriente}"
+        
         for linea in info_general.strip().split('\n'):
-            pdf.cell(0, 8, limpiar_texto_para_pdf(linea), 0, 1)
+            pdf.cell(0, 6, limpiar_texto_para_pdf(linea), 0, 1)
+        
         pdf.ln(5)
+        
+        # 2. ESTADÍSTICAS PRINCIPALES
         if estadisticas:
             pdf.set_font('Arial', 'B', 14)
             pdf.cell(0, 10, '2. ESTADÍSTICAS PRINCIPALES', 0, 1)
-            pdf.set_font('Arial', '', 12)
+            pdf.set_font('Arial', '', 11)
+            
             for key, value in estadisticas.items():
                 linea = f"- {key}: {value}"
-                pdf.cell(0, 8, limpiar_texto_para_pdf(linea), 0, 1)
+                lineas_divididas = dividir_texto_largo(limpiar_texto_para_pdf(linea), max_len=120)
+                for linea_dividida in lineas_divididas:
+                    pdf.cell(0, 6, linea_dividida, 0, 1)
+            
             pdf.ln(5)
+        
+        # 3. RESUMEN DE ZONAS
         pdf.set_font('Arial', 'B', 14)
         pdf.cell(0, 10, '3. RESUMEN DE ZONAS', 0, 1)
-        pdf.set_font('Arial', '', 10)
+        
         if gdf_analizado is not None and not gdf_analizado.empty:
+            # Preparar datos para tabla
             columnas_mostrar = ['id_zona', 'area_ha']
             if 'npk_actual' in gdf_analizado.columns:
                 columnas_mostrar.append('npk_actual')
@@ -1495,52 +1555,85 @@ Tipo de Análisis: {analisis_tipo}"""
                 columnas_mostrar.append('textura_suelo')
             if 'ndwi' in gdf_analizado.columns:
                 columnas_mostrar.append('ndwi')
+            
             columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
+            
             if columnas_mostrar:
-                datos_tabla = [columnas_mostrar]
-                for _, row in gdf_analizado.head(15).iterrows():
-                    fila = []
+                # Crear tabla
+                pdf.set_font('Arial', 'B', 10)
+                ancho_columna = 180 / len(columnas_mostrar)
+                
+                # Encabezados
+                for col in columnas_mostrar:
+                    nombre_col = col.replace('_', ' ').title()
+                    pdf.cell(ancho_columna, 8, nombre_col[:15], border=1, align='C')
+                pdf.ln()
+                
+                # Datos (solo primeras 10 filas)
+                pdf.set_font('Arial', '', 9)
+                for idx, row in gdf_analizado.head(10).iterrows():
                     for col in columnas_mostrar:
                         if col in gdf_analizado.columns:
                             valor = row[col]
                             if isinstance(valor, float):
                                 if col in ['npk_actual', 'ndwi']:
-                                    fila.append(f"{valor:.3f}")
+                                    texto = f"{valor:.3f}"
+                                elif col == 'area_ha':
+                                    texto = f"{valor:.2f}"
                                 else:
-                                    fila.append(f"{valor:.2f}")
+                                    texto = f"{valor:.1f}"
                             else:
-                                fila.append(str(valor))
+                                texto = str(valor)[:15]
                         else:
-                            fila.append("N/A")
-                    datos_tabla.append(fila)
-                col_widths = [190 // len(columnas_mostrar)] * len(columnas_mostrar)
-                for fila in datos_tabla:
-                    for i, item in enumerate(fila):
-                        if i < len(col_widths):
-                            pdf.cell(col_widths[i], 8, limpiar_texto_para_pdf(str(item)), border=1)
+                            texto = "N/A"
+                        
+                        pdf.cell(ancho_columna, 6, texto, border=1, align='C')
                     pdf.ln()
-                pdf.ln(5)
+            
+            pdf.ln(5)
+        
+        # 4. RECOMENDACIONES
         if recomendaciones:
             pdf.set_font('Arial', 'B', 14)
             pdf.cell(0, 10, '4. RECOMENDACIONES', 0, 1)
-            pdf.set_font('Arial', '', 12)
-            for rec in recomendaciones:
-                linea = f"- {limpiar_texto_para_pdf(rec)}"
-                pdf.multi_cell(0, 8, linea)
+            pdf.set_font('Arial', '', 11)
+            
+            for i, rec in enumerate(recomendaciones[:8]):  # Limitar a 8 recomendaciones
+                linea = f"{i+1}. {limpiar_texto_para_pdf(rec)}"
+                lineas_divididas = dividir_texto_largo(linea, max_len=120)
+                
+                for j, linea_dividida in enumerate(lineas_divididas):
+                    if j == 0:
+                        pdf.cell(0, 6, linea_dividida, 0, 1)
+                    else:
+                        # Sangría para líneas continuas
+                        pdf.cell(10)  # Sangría
+                        pdf.cell(0, 6, linea_dividida, 0, 1)
+                pdf.ln(2)
+            
+            pdf.ln(5)
+        
+        # 5. METADATOS TÉCNICOS
         pdf.set_font('Arial', 'B', 14)
         pdf.cell(0, 10, '5. METADATOS TÉCNICOS', 0, 1)
         pdf.set_font('Arial', '', 10)
+        
         metadatos = f"""Generado por: Analizador Multi-Cultivo Satellital
 Versión: 2.0
 Fecha de generación: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 Sistema de coordenadas: EPSG:4326 (WGS84)
 Número de zonas: {len(gdf_analizado)}"""
+        
         for linea in metadatos.strip().split('\n'):
-            pdf.cell(0, 6, limpiar_texto_para_pdf(linea), 0, 1)
+            pdf.cell(0, 5, limpiar_texto_para_pdf(linea), 0, 1)
+        
+        # Generar PDF
         pdf_output = BytesIO()
         pdf_output.write(pdf.output(dest='S').encode('latin-1'))
         pdf_output.seek(0)
+        
         return pdf_output
+    
     except Exception as e:
         st.error(f"❌ Error generando PDF: {str(e)}")
         import traceback
@@ -1552,16 +1645,25 @@ def generar_reporte_docx(gdf_analizado, cultivo, analisis_tipo, area_total,
                         mapa_buffer=None, estadisticas=None, recomendaciones=None):
     try:
         doc = Document()
+        
+        # Título
         title = doc.add_heading(f'REPORTE DE ANÁLISIS AGRÍCOLA - {cultivo}', 0)
         title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Subtítulos
         subtitle = doc.add_paragraph(f'Tipo de Análisis: {analisis_tipo}')
         subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
         fecha = doc.add_paragraph(f'Fecha: {datetime.now().strftime("%d/%m/%Y %H:%M")}')
         fecha.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
         doc.add_paragraph()
+        
+        # 1. INFORMACIÓN GENERAL
         doc.add_heading('1. INFORMACIÓN GENERAL', level=1)
         info_table = doc.add_table(rows=4, cols=2)
         info_table.style = 'Table Grid'
+        
         info_table.cell(0, 0).text = 'Cultivo'
         info_table.cell(0, 1).text = cultivo
         info_table.cell(1, 0).text = 'Área Total'
@@ -1570,25 +1672,28 @@ def generar_reporte_docx(gdf_analizado, cultivo, analisis_tipo, area_total,
         info_table.cell(2, 1).text = str(len(gdf_analizado))
         info_table.cell(3, 0).text = 'Tipo de Análisis'
         info_table.cell(3, 1).text = analisis_tipo
+        
         row_count = 4
         if satelite:
-            if row_count >= len(info_table.rows):
-                info_table.add_row()
+            info_table.add_row()
             info_table.cell(row_count, 0).text = 'Satélite'
             info_table.cell(row_count, 1).text = satelite
             row_count += 1
+        
         if indice:
-            if row_count >= len(info_table.rows):
-                info_table.add_row()
+            info_table.add_row()
             info_table.cell(row_count, 0).text = 'Índice'
             info_table.cell(row_count, 1).text = indice
             row_count += 1
+        
         if nutriente:
-            if row_count >= len(info_table.rows):
-                info_table.add_row()
+            info_table.add_row()
             info_table.cell(row_count, 0).text = 'Nutriente Analizado'
             info_table.cell(row_count, 1).text = nutriente
+        
         doc.add_paragraph()
+        
+        # 2. ESTADÍSTICAS PRINCIPALES
         if estadisticas:
             doc.add_heading('2. ESTADÍSTICAS PRINCIPALES', level=1)
             for key, value in estadisticas.items():
@@ -1597,18 +1702,9 @@ def generar_reporte_docx(gdf_analizado, cultivo, analisis_tipo, area_total,
                 run.bold = True
                 p.add_run(str(value))
             doc.add_paragraph()
-        if mapa_buffer and mapa_buffer.getbuffer().nbytes > 0:
-            try:
-                doc.add_heading('3. MAPA DE RESULTADOS', level=1)
-                # Guardar y cargar imagen
-                temp_img = BytesIO()
-                temp_img.write(mapa_buffer.getvalue())
-                temp_img.seek(0)
-                doc.add_picture(temp_img, width=Inches(6.0))
-                doc.add_paragraph()
-            except Exception as e:
-                doc.add_paragraph(f'Error al incluir mapa: {str(e)[:50]}...')
-        doc.add_heading('4. RESUMEN DE ZONAS', level=1)
+        
+        # 3. RESUMEN DE ZONAS
+        doc.add_heading('3. RESUMEN DE ZONAS', level=1)
         if gdf_analizado is not None and not gdf_analizado.empty:
             columnas_mostrar = ['id_zona', 'area_ha']
             if 'npk_actual' in gdf_analizado.columns:
@@ -1619,12 +1715,18 @@ def generar_reporte_docx(gdf_analizado, cultivo, analisis_tipo, area_total,
                 columnas_mostrar.append('textura_suelo')
             if 'ndwi' in gdf_analizado.columns:
                 columnas_mostrar.append('ndwi')
+            
             columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
+            
             if columnas_mostrar:
                 tabla = doc.add_table(rows=1, cols=len(columnas_mostrar))
                 tabla.style = 'Table Grid'
+                
+                # Encabezados
                 for i, col in enumerate(columnas_mostrar):
                     tabla.cell(0, i).text = col.replace('_', ' ').upper()
+                
+                # Datos (primeras 10 filas)
                 for idx, row in gdf_analizado.head(10).iterrows():
                     row_cells = tabla.add_row().cells
                     for i, col in enumerate(columnas_mostrar):
@@ -1639,13 +1741,18 @@ def generar_reporte_docx(gdf_analizado, cultivo, analisis_tipo, area_total,
                                 row_cells[i].text = str(valor)
                         else:
                             row_cells[i].text = "N/A"
+                
                 doc.add_paragraph()
+        
+        # 4. RECOMENDACIONES
         if recomendaciones:
-            doc.add_heading('5. RECOMENDACIONES', level=1)
-            for rec in recomendaciones:
+            doc.add_heading('4. RECOMENDACIONES', level=1)
+            for rec in recomendaciones[:8]:  # Limitar a 8 recomendaciones
                 p = doc.add_paragraph(style='List Bullet')
                 p.add_run(rec)
-        doc.add_heading('6. METADATOS TÉCNICOS', level=1)
+        
+        # 5. METADATOS TÉCNICOS
+        doc.add_heading('5. METADATOS TÉCNICOS', level=1)
         metadatos = [
             ('Generado por', 'Analizador Multi-Cultivo Satellital'),
             ('Versión', '2.0'),
@@ -1653,21 +1760,25 @@ def generar_reporte_docx(gdf_analizado, cultivo, analisis_tipo, area_total,
             ('Sistema de coordenadas', 'EPSG:4326 (WGS84)'),
             ('Número de zonas', str(len(gdf_analizado)))
         ]
+        
         for key, value in metadatos:
             p = doc.add_paragraph()
             run_key = p.add_run(f'{key}: ')
             run_key.bold = True
             p.add_run(value)
+        
+        # Guardar documento
         docx_output = BytesIO()
         doc.save(docx_output)
         docx_output.seek(0)
+        
         return docx_output
+    
     except Exception as e:
         st.error(f"❌ Error generando DOCX: {str(e)}")
         import traceback
         st.error(f"Detalle: {traceback.format_exc()}")
         return None
-
 # ===== FUNCIONES DE VISUALIZACIÓN MEJORADAS CON MAPAS ESRI =====
 def crear_mapa_estatico_con_esri(gdf, titulo, columna_valor, analisis_tipo, nutriente, cultivo, satelite):
     """Crea mapa estático con fondo ESRI Satellite"""
