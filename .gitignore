@@ -1,37 +1,38 @@
-# Streamlit
+# Secrets y configuración
+.streamlit/
+secrets.toml
+
+# Archivos temporales y caché
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-*.so
-
-# Virtual environments
-.env
-.venv
 env/
-venv/
-ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# System files
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Data
-data/usuario/
-resultados/
-*.geojson
+# Sistema
+.DS_Store
+Thumbs.db
 
 # Logs
 *.log
-logs/
-
-# Sentinel Hub cache
-.sentinelhub/
