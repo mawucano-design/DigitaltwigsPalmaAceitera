@@ -9,3 +9,5 @@ python-docx
 geojson
 requests
 contextily 
+elevation
+rasterio
