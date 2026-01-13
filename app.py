@@ -27,7 +27,7 @@ import geojson
 import requests
 import contextily as ctx
 
-# === NO HAY INICIALIZACIÓN DE GEE ===
+# === NO HAY INICIALIZACIÓN DE GEE NI ELEVATION ===
 warnings.filterwarnings('ignore')
 
 # === INICIALIZACIÓN DE VARIABLES DE SESIÓN PARA REPORTES ===
@@ -455,7 +455,6 @@ SATELITES_DISPONIBLES = {
 }
 
 # ===== CONFIGURACIÓN =====
-# PARÁMETROS GEE POR CULTIVO
 PARAMETROS_CULTIVOS = {
 'PALMA ACEITERA': {
 'NITROGENO': {'min': 180, 'max': 250},
@@ -495,7 +494,6 @@ PARAMETROS_CULTIVOS = {
 }
 }
 
-# PARÁMETROS DE TEXTURA DEL SUELO POR CULTIVO
 TEXTURA_SUELO_OPTIMA = {
 'PALMA ACEITERA': {
 'textura_optima': 'Franco',
@@ -531,7 +529,6 @@ TEXTURA_SUELO_OPTIMA = {
 }
 }
 
-# CLASIFICACIÓN DE PENDIENTES
 CLASIFICACION_PENDIENTES = {
 'PLANA (0-2%)': {'min': 0, 'max': 2, 'color': '#4daf4a', 'factor_erosivo': 0.1},
 'SUAVE (2-5%)': {'min': 2, 'max': 5, 'color': '#a6d96a', 'factor_erosivo': 0.3},
@@ -541,7 +538,6 @@ CLASIFICACION_PENDIENTES = {
 'EXTREMA (>25%)': {'min': 25, 'max': 100, 'color': '#d73027', 'factor_erosivo': 1.0}
 }
 
-# RECOMENDACIONES POR TIPO DE TEXTURA - ACTUALIZADO A NOMENCLATURA VENEZUELA/COLOMBIA
 RECOMENDACIONES_TEXTURA = {
 'Franco': {
 'propiedades': [
@@ -601,7 +597,6 @@ RECOMENDACIONES_TEXTURA = {
 }
 }
 
-# ICONOS Y COLORES POR CULTIVO
 ICONOS_CULTIVOS = {
 'PALMA ACEITERA': '🌴',
 'CACAO': '🍫',
@@ -615,7 +610,6 @@ COLORES_CULTIVOS = {
 'CAFÉ': '#8B4513'
 }
 
-# PALETAS GEE MEJORADAS
 PALETAS_GEE = {
 'FERTILIDAD': ['#d73027', '#f46d43', '#fdae61', '#fee08b', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837'],
 'NITROGENO': ['#00ff00', '#80ff00', '#ffff00', '#ff8000', '#ff0000'],
@@ -1002,7 +996,7 @@ def obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin):
         st.error(f"❌ Error al obtener datos de NASA POWER: {str(e)}")
         return None
 
-# ===== FUNCIONES DE ANÁLISIS GEE =====
+# ===== FUNCIONES DE ANÁLISIS =====
 def calcular_indices_satelitales_gee(gdf, cultivo, datos_satelitales):
     n_poligonos = len(gdf)
     resultados = []
@@ -1036,7 +1030,6 @@ def calcular_indices_satelitales_gee(gdf, cultivo, datos_satelitales):
         ndre_variacion = patron_espacial * (params['NDRE_OPTIMO'] * 0.4)
         ndre = ndre_base + ndre_variacion + np.random.normal(0, 0.04)
         ndre = max(0.05, min(0.7, ndre))
-        # Calcular NDWI simulado (proxy de humedad)
         ndwi = 0.2 + np.random.normal(0, 0.08)
         ndwi = max(0, min(1, ndwi))
         npk_actual = (ndvi * 0.4) + (ndre * 0.3) + ((materia_organica / 8) * 0.2) + (humedad_suelo * 0.1)
@@ -1076,7 +1069,7 @@ def calcular_recomendaciones_npk_gee(indices, nutriente, cultivo):
             recomendaciones.append(round(k_recomendado, 1))
     return recomendaciones
 
-# ===== FUNCIONES DE TEXTURA DEL SUELO - ACTUALIZADAS CON NUEVA NOMENCLATURA =====
+# ===== FUNCIONES DE TEXTURA DEL SUELO =====
 def clasificar_textura_suelo(arena, limo, arcilla):
     try:
         total = arena + limo + arcilla
@@ -1085,7 +1078,6 @@ def clasificar_textura_suelo(arena, limo, arcilla):
         arena_norm = (arena / total) * 100
         limo_norm = (limo / total) * 100
         arcilla_norm = (arcilla / total) * 100
-        # Nomenclatura actualizada Venezuela/Colombia
         if arcilla_norm >= 35:
             return "Franco arcilloso"
         elif arcilla_norm >= 25 and arcilla_norm <= 35 and arena_norm >= 20 and arena_norm <= 45:
@@ -1171,55 +1163,53 @@ def analizar_textura_suelo(gdf, cultivo):
     zonas_gdf['textura_suelo'] = textura_list
     return zonas_gdf
 
-# ===== FUNCIÓN PARA OBTENER DEM DESDE SRTM (NASA) SIN GEE =====
-def obtener_dem_srtm_nasa(gdf, resolucion_m=30):
+# ===== NUEVA FUNCIÓN: SRTM DESDE OPENTOPOGRAPHY =====
+def obtener_dem_srtm_opentopography(gdf, resolucion_m=30):
     """
-    Obtiene DEM real desde SRTM (NASA) usando la librería 'elevation'.
-    Solo funciona para latitudes entre 56°S y 60°N (cobertura SRTM).
+    Obtiene DEM SRTM 30m desde OpenTopography (sin autenticación).
+    Solo para latitudes entre 56°S y 60°N.
     """
+    import requests
+    import rasterio
+    from rasterio.io import MemoryFile
+    from rasterio.mask import mask
+    import numpy as np
+
+    gdf = validar_y_corregir_crs(gdf)
+    bounds = gdf.total_bounds  # minx, miny, maxx, maxy
+
+    # Verificar cobertura SRTM
+    if bounds[1] < -56 or bounds[3] > 60:
+        raise ValueError("Fuera de cobertura SRTM (-56° a 60°)")
+
+    minx, miny, maxx, maxy = bounds
+    url = (
+        f"https://portal.opentopography.org/API/globaldem?"
+        f"demtype=SRTMGL1&south={miny}&north={maxy}&west={minx}&east={maxx}&outputFormat=GTiff"
+    )
+
     try:
-        import elevation
-        import rasterio
-        from rasterio.mask import mask
-        import tempfile
+        st.info("🌍 Descargando DEM SRTM desde OpenTopography...")
+        response = requests.get(url, timeout=60)
+        response.raise_for_status()
 
-        gdf = validar_y_corregir_crs(gdf)
-        bounds = gdf.total_bounds  # minx, miny, maxx, maxy
+        with MemoryFile(response.content) as memfile:
+            with memfile.open() as src:
+                out_image, out_transform = mask(src, gdf.geometry, crop=True)
+                Z = out_image[0].astype(np.float32)
+                Z[Z == src.nodata] = np.nan
 
-        # Verificar cobertura de SRTM
-        if bounds[1] < -56 or bounds[3] > 60:
-            raise ValueError("La parcela está fuera de la cobertura de SRTM (-56° a 60° latitud)")
+                height, width = Z.shape
+                cols, rows = np.meshgrid(np.arange(width), np.arange(height))
+                T0 = out_transform * (cols.flatten(), rows.flatten())
+                X = T0[0].reshape(height, width)
+                Y = T0[1].reshape(height, width)
 
-        with tempfile.NamedTemporaryFile(suffix='.tif', delete=False) as tmp_file:
-            output_path = tmp_file.name
-
-        # Descargar DEM SRTM en la caja de límites
-        elevation.clip(bounds=bounds, output=output_path, product='SRTM1')  # SRTM1 = 30m
-
-        # Leer el raster recortado
-        with rasterio.open(output_path) as src:
-            # Recortar exactamente a la geometría (opcional, mejora precisión)
-            out_image, out_transform = mask(src, gdf.geometry, crop=True)
-            Z = out_image[0]  # solo banda 1
-            Z = Z.astype(np.float32)
-            Z[Z == src.nodata] = np.nan
-
-            # Generar coordenadas
-            height, width = Z.shape
-            cols, rows = np.meshgrid(np.arange(width), np.arange(height))
-            T0 = out_transform * (cols.flatten(), rows.flatten())
-            X = T0[0].reshape(height, width)
-            Y = T0[1].reshape(height, width)
-
-        # Limpiar archivo temporal
-        if os.path.exists(output_path):
-            os.remove(output_path)
-
+        st.success("✅ DEM SRTM cargado desde OpenTopography")
         return X, Y, Z, bounds
-    except ImportError:
-        raise Exception("Librería 'elevation' no instalada. Ejecuta: pip install elevation rasterio")
+
     except Exception as e:
-        raise e
+        raise Exception(f"Error en OpenTopography: {str(e)}")
 
 # ===== FUNCIONES DE CURVAS DE NIVEL (RESPALDO SINTÉTICO) =====
 def generar_dem_sintetico(gdf, resolucion=10.0):
@@ -1351,7 +1341,7 @@ def generar_curvas_nivel_simple(X, Y, Z, intervalo=5.0, gdf_original=None):
                 elevaciones.append(100 + i * 50)
     return curvas, elevaciones
 
-# ===== FUNCIONES DE EXPORTACIÓN Y REPORTES - CORREGIDAS =====
+# ===== FUNCIONES DE EXPORTACIÓN Y REPORTES =====
 def exportar_a_geojson(gdf, nombre_base="parcela"):
     try:
         gdf = validar_y_corregir_crs(gdf)
@@ -1375,7 +1365,6 @@ def generar_resumen_estadisticas(gdf_analizado, analisis_tipo, cultivo, df_power
                 estadisticas['NDWI Promedio'] = f"{gdf_analizado['ndwi'].mean():.3f}"
             if 'materia_organica' in gdf_analizado.columns:
                 estadisticas['Materia Orgánica Promedio'] = f"{gdf_analizado['materia_organica'].mean():.1f}%"
-            # Datos de NASA POWER
             if df_power is not None:
                 estadisticas['Radiación Solar Promedio'] = f"{df_power['radiacion_solar'].mean():.1f} kWh/m²/día"
                 estadisticas['Velocidad Viento Promedio'] = f"{df_power['viento_2m'].mean():.2f} m/s"
@@ -1420,7 +1409,6 @@ def generar_recomendaciones_generales(gdf_analizado, analisis_tipo, cultivo):
                     recomendaciones.append("Suelo franco arenoso-arcilloso: Aumentar materia orgánica y considerar riego frecuente")
                 elif textura_predominante == "Franco":
                     recomendaciones.append("Textura franca: Condiciones óptimas, mantener prácticas de conservación")
-        # === RECOMENDACIONES POR CULTIVO ===
         if cultivo == "PALMA ACEITERA":
             recomendaciones.append("Para palma aceitera: Priorizar aplicación de potasio en zonas con deficiencia.")
             recomendaciones.append("Evitar encharcamientos prolongados: implementar drenaje en zonas planas.")
@@ -1718,7 +1706,7 @@ def generar_reporte_docx(gdf_analizado, cultivo, analisis_tipo, area_total,
         st.error(f"Detalle: {traceback.format_exc()}")
         return None
 
-# ===== FUNCIONES DE VISUALIZACIÓN MEJORADAS CON MAPAS ESRI =====
+# ===== FUNCIONES DE VISUALIZACIÓN =====
 def crear_mapa_estatico_con_esri(gdf, titulo, columna_valor, analisis_tipo, nutriente, cultivo, satelite):
     try:
         gdf_plot = gdf.to_crs(epsg=3857)
@@ -1894,7 +1882,7 @@ Estadísticas:
         st.error(f"Detalle: {traceback.format_exc()}")
         return None
 
-# ===== FUNCIÓN PRINCIPAL DE ANÁLISIS (CORREGIDA) =====
+# ===== FUNCIÓN PRINCIPAL DE ANÁLISIS =====
 def ejecutar_analisis(gdf, nutriente, analisis_tipo, n_divisiones, cultivo,
                       satelite=None, indice=None, fecha_inicio=None,
                       fecha_fin=None, intervalo_curvas=5.0, resolucion_dem=10.0):
@@ -1912,20 +1900,17 @@ def ejecutar_analisis(gdf, nutriente, analisis_tipo, n_divisiones, cultivo,
         gdf = validar_y_corregir_crs(gdf)
         area_total = calcular_superficie(gdf)
         resultados['area_total'] = area_total
-        # === ANÁLISIS DE TEXTURA DEL SUELO ===
         if analisis_tipo == "ANÁLISIS DE TEXTURA":
             gdf_dividido = dividir_parcela_en_zonas(gdf, n_divisiones)
             gdf_analizado = analizar_textura_suelo(gdf_dividido, cultivo)
             resultados['gdf_analizado'] = gdf_analizado
             resultados['exitoso'] = True
             return resultados
-        # === ANÁLISIS DE CURVAS DE NIVEL ===
         elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
             gdf_dividido = dividir_parcela_en_zonas(gdf, n_divisiones)
             resultados['gdf_analizado'] = gdf_dividido
             resultados['exitoso'] = True
             return resultados
-        # === ANÁLISIS SATELITAL (FERTILIDAD O NPK) ===
         elif analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
             datos_satelitales = None
             if satelite == "SENTINEL-2":
@@ -1957,7 +1942,6 @@ def ejecutar_analisis(gdf, nutriente, analisis_tipo, n_divisiones, cultivo,
                 gdf_analizado['valor_recomendado'] = recomendaciones_npk
             resultados['gdf_analizado'] = gdf_analizado
             resultados['exitoso'] = True
-            # === DATOS DE NASA POWER ===
             if satelite:
                 df_power = obtener_datos_nasa_power(gdf, fecha_inicio, fecha_fin)
                 if df_power is not None:
@@ -2141,7 +2125,7 @@ def mostrar_resultados_curvas_nivel(X, Y, Z, pendiente_grid, curvas, elevaciones
             mime="text/csv"
         )
 
-# ===== INTERFAZ PRINCIPAL - SECCIÓN CORREGIDA =====
+# ===== INTERFAZ PRINCIPAL =====
 if uploaded_file:
     with st.spinner("Cargando parcela..."):
         try:
@@ -2196,7 +2180,6 @@ if uploaded_file:
                             gdf, None, analisis_tipo, n_divisiones,
                             cultivo, None, None, None, None
                         )
-                    # GUARDAR RESULTADOS EN SESSION STATE
                     if resultados and resultados['exitoso']:
                         st.session_state['resultados_guardados'] = {
                             'gdf_analizado': resultados['gdf_analizado'],
@@ -2214,19 +2197,16 @@ if uploaded_file:
                             'gdf_original': gdf if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL" else None,
                             'df_power': resultados.get('df_power')
                         }
-                        # Mostrar resultados según el tipo de análisis
                         if analisis_tipo == "ANÁLISIS DE TEXTURA":
                             mostrar_resultados_textura(resultados['gdf_analizado'], cultivo, resultados['area_total'])
                         elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
                             try:
-                                st.info("🌍 Descargando DEM SRTM de la NASA...")
-                                X, Y, Z, _ = obtener_dem_srtm_nasa(gdf, resolucion_m=int(resolucion_dem))
+                                X, Y, Z, _ = obtener_dem_srtm_opentopography(gdf, resolucion_m=int(resolucion_dem))
                                 pendiente_grid = calcular_pendiente_simple(X, Y, Z, resolucion_dem)
                                 curvas, elevaciones = generar_curvas_nivel_simple(X, Y, Z, intervalo_curvas, gdf)
                                 st.session_state['resultados_guardados'].update({
                                     'X': X, 'Y': Y, 'Z': Z, 'pendiente_grid': pendiente_grid
                                 })
-                                st.success("✅ DEM SRTM cargado exitosamente")
                                 mostrar_resultados_curvas_nivel(X, Y, Z, pendiente_grid, curvas, elevaciones, gdf, cultivo, resultados['area_total'])
                             except Exception as e:
                                 st.warning(f"⚠️ No se pudo cargar SRTM ({e}). Usando DEM sintético como respaldo.")
@@ -2238,7 +2218,6 @@ if uploaded_file:
                                 })
                                 mostrar_resultados_curvas_nivel(X, Y, Z, pendiente_grid, curvas, elevaciones, gdf, cultivo, resultados['area_total'])
                         else:
-                            # Mostrar resultados GEE
                             gdf_analizado = resultados['gdf_analizado']
                             col1, col2, col3, col4 = st.columns(4)
                             with col1:
@@ -2259,7 +2238,6 @@ if uploaded_file:
                                 elif analisis_tipo == "RECOMENDACIONES NPK" and gdf_analizado['valor_recomendado'].mean() > 0:
                                     coef_var = (gdf_analizado['valor_recomendado'].std() / gdf_analizado['valor_recomendado'].mean() * 100)
                                     st.metric("Coef. Variación", f"{coef_var:.1f}%")
-                            # === DATOS DE NASA POWER ===
                             if resultados.get('df_power') is not None:
                                 df_power = resultados['df_power']
                                 st.subheader("🌤️ DATOS METEOROLÓGICOS (NASA POWER)")
@@ -2270,7 +2248,6 @@ if uploaded_file:
                                     st.metric("💨 Viento a 2m", f"{df_power['viento_2m'].mean():.2f} m/s")
                                 with col7:
                                     st.metric("💧 NDWI Promedio", f"{gdf_analizado['ndwi'].mean():.3f}")
-                            # === CREAR MAPA PRINCIPAL ===
                             mapa_buffer = None
                             if analisis_tipo == "FERTILIDAD ACTUAL":
                                 mapa_buffer = crear_mapa_estatico_con_esri(
@@ -2301,7 +2278,6 @@ if uploaded_file:
                                     f"mapa_{cultivo}_{analisis_tipo}_{datetime.now().strftime('%Y%m%d_%H%M')}.png",
                                     "image/png"
                                 )
-                            # === PESTAÑAS DE DATOS METEOROLÓGICOS ===
                             if df_power is not None:
                                 tab_radiacion, tab_viento, tab_precip, tab_cosecha = st.tabs([
                                     "☀️ Radiación Solar",
@@ -2352,7 +2328,6 @@ if uploaded_file:
                                             f"potencial_cosecha_{cultivo}_{datetime.now().strftime('%Y%m%d_%H%M')}.png",
                                             "image/png"
                                         )
-                            # === TABLA DE RESULTADOS ===
                             st.subheader("📋 TABLA DE RESULTADOS POR ZONA")
                             if analisis_tipo == "FERTILIDAD ACTUAL":
                                 columnas_mostrar = ['id_zona', 'area_ha', 'npk_actual',
@@ -2374,7 +2349,6 @@ if uploaded_file:
                                     tabla_resultados.columns = ['Zona', 'Área (ha)', f'{nutriente} Recomendado (kg/ha)',
                                                                'NDVI', 'NDRE', 'NDWI']
                                     st.dataframe(tabla_resultados)
-                            # === RECOMENDACIONES ===
                             estadisticas = generar_resumen_estadisticas(
                                 gdf_analizado, analisis_tipo, cultivo, resultados.get('df_power'))
                             recomendaciones = generar_recomendaciones_generales(
@@ -2382,7 +2356,6 @@ if uploaded_file:
                             st.subheader("💡 RECOMENDACIONES DE MANEJO")
                             for i, rec in enumerate(recomendaciones[:5]):
                                 st.info(f"{i+1}. {rec}")
-                            # Guardar mapa buffer en session_state
                             st.session_state['resultados_guardados']['mapa_buffer'] = mapa_buffer
                             st.session_state['resultados_guardados']['estadisticas'] = estadisticas
                             st.session_state['resultados_guardados']['recomendaciones'] = recomendaciones
@@ -2393,7 +2366,7 @@ if uploaded_file:
             import traceback
             st.error(f"Detalle: {traceback.format_exc()}")
 
-# ===== SECCIÓN DE EXPORTACIÓN CORREGIDA =====
+# ===== SECCIÓN DE EXPORTACIÓN =====
 if 'resultados_guardados' in st.session_state:
     st.markdown("---")
     st.subheader("💾 EXPORTAR RESULTADOS")
@@ -2468,13 +2441,10 @@ if 'resultados_guardados' in st.session_state:
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 key="docx_download"
             )
-  # Exportar CSV según tipo de análisis
     st.markdown("---")
     st.markdown("**Datos en CSV**")
-    
     csv_data = None
     csv_filename = ""
-    
     if analisis_tipo == "FERTILIDAD ACTUAL":
         columnas_mostrar = ['id_zona', 'area_ha', 'npk_actual', 'ndvi', 'ndre', 'ndwi',
                            'materia_organica', 'humedad_suelo']
@@ -2483,7 +2453,6 @@ if 'resultados_guardados' in st.session_state:
             tabla_resultados = gdf_analizado[columnas_mostrar].copy()
             csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
             csv_filename = f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv"
-    
     elif analisis_tipo == "RECOMENDACIONES NPK":
         columnas_mostrar = ['id_zona', 'area_ha', 'valor_recomendado', 'ndvi', 'ndre', 'ndwi']
         columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
@@ -2491,7 +2460,6 @@ if 'resultados_guardados' in st.session_state:
             tabla_resultados = gdf_analizado[columnas_mostrar].copy()
             csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
             csv_filename = f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv"
-    
     elif analisis_tipo == "ANÁLISIS DE TEXTURA":
         columnas_mostrar = ['id_zona', 'area_ha', 'textura_suelo', 'arena', 'limo', 'arcilla']
         columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
@@ -2499,7 +2467,26 @@ if 'resultados_guardados' in st.session_state:
             tabla_resultados = gdf_analizado[columnas_mostrar].copy()
             csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
             csv_filename = f"texturas_{cultivo}_{timestamp}.csv"
-    
+    elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
+        if 'X' in resultados_guardados and resultados_guardados['X'] is not None:
+            X = resultados_guardados['X']
+            Y = resultados_guardados['Y']
+            Z = resultados_guardados['Z']
+            pendiente_grid = resultados_guardados['pendiente_grid']
+            sample_points = []
+            for i in range(0, X.shape[0], 5):
+                for j in range(0, X.shape[1], 5):
+                    if not np.isnan(Z[i, j]):
+                        sample_points.append({
+                            'lat': Y[i, j],
+                            'lon': X[i, j],
+                            'elevacion_m': Z[i, j],
+                            'pendiente_%': pendiente_grid[i, j]
+                        })
+            if sample_points:
+                df_dem = pd.DataFrame(sample_points)
+                csv_data = df_dem.to_csv(index=False, encoding='utf-8')
+                csv_filename = f"dem_{cultivo}_{timestamp}.csv"
     if csv_data:
         st.download_button(
             label="📊 Descargar CSV de Datos",
@@ -2508,8 +2495,6 @@ if 'resultados_guardados' in st.session_state:
             mime="text/csv",
             key="csv_download"
         )
-    
-    # Botón para limpiar reportes
     if st.session_state.pdf_report or st.session_state.docx_report:
         st.markdown("---")
         if st.button("🗑️ Limpiar Reportes Generados", key="clear_reports"):
@@ -2518,13 +2503,10 @@ if 'resultados_guardados' in st.session_state:
             st.session_state.report_filename_base = ""
             st.success("Reportes limpiados correctamente")
             st.rerun()
-
 else:
     st.info("👈 Por favor, sube un archivo de parcela y ejecuta el análisis para comenzar.")
 
-
-
-# ===== PIE DE PÁGINA ESTILIZADO =====
+# ===== PIE DE PÁGINA =====
 st.markdown("---")
 col_footer1, col_footer2, col_footer3 = st.columns(3)
 with col_footer1:
@@ -2533,7 +2515,7 @@ with col_footer1:
 - NASA POWER API
 - Sentinel-2 (ESA)
 - Landsat-8 (USGS)
-- SRTM (NASA)
+- SRTM (NASA via OpenTopography)
 """)
 with col_footer2:
     st.markdown("""
@@ -2541,7 +2523,7 @@ with col_footer2:
 - Streamlit
 - GeoPandas
 - Matplotlib
-- elevation (SRTM)
+- OpenTopography API
 """)
 with col_footer3:
     st.markdown("""
