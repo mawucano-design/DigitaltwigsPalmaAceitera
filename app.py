@@ -1163,10 +1163,10 @@ def analizar_textura_suelo(gdf, cultivo):
     zonas_gdf['textura_suelo'] = textura_list
     return zonas_gdf
 
-# ===== NUEVA FUNCIÓN: SRTM DESDE OPENTOPOGRAPHY =====
+# ===== NUEVA FUNCIÓN: SRTM DESDE OPENTOPOGRAPHY CON SECRETS =====
 def obtener_dem_srtm_opentopography(gdf, resolucion_m=30):
     """
-    Obtiene DEM SRTM 30m desde OpenTopography (sin autenticación).
+    Obtiene DEM SRTM 30m desde OpenTopography usando clave API desde st.secrets.
     Solo para latitudes entre 56°S y 60°N.
     """
     import requests
@@ -1174,6 +1174,12 @@ def obtener_dem_srtm_opentopography(gdf, resolucion_m=30):
     from rasterio.io import MemoryFile
     from rasterio.mask import mask
     import numpy as np
+
+    # 🔑 Obtener clave API de los secrets de Streamlit
+    try:
+        API_KEY = st.secrets["OPENTOPOGRAPHY_API_KEY"]
+    except KeyError:
+        raise Exception("Clave API no encontrada. Configura OPENTOPOGRAPHY_API_KEY en secrets.")
 
     gdf = validar_y_corregir_crs(gdf)
     bounds = gdf.total_bounds  # minx, miny, maxx, maxy
@@ -1185,7 +1191,8 @@ def obtener_dem_srtm_opentopography(gdf, resolucion_m=30):
     minx, miny, maxx, maxy = bounds
     url = (
         f"https://portal.opentopography.org/API/globaldem?"
-        f"demtype=SRTMGL1&south={miny}&north={maxy}&west={minx}&east={maxx}&outputFormat=GTiff"
+        f"demtype=SRTMGL1&south={miny}&north={maxy}&west={minx}&east={maxx}"
+        f"&outputFormat=GTiff&API_Key={API_KEY}"
     )
 
     try:
@@ -1208,6 +1215,14 @@ def obtener_dem_srtm_opentopography(gdf, resolucion_m=30):
         st.success("✅ DEM SRTM cargado desde OpenTopography")
         return X, Y, Z, bounds
 
+    except requests.exceptions.HTTPError as e:
+        status_code = response.status_code
+        if status_code == 401:
+            raise Exception("Clave API inválida o no autorizada. Verifica tu clave en OpenTopography.")
+        elif status_code == 400:
+            raise Exception("Solicitud inválida. Verifica los límites de la parcela.")
+        else:
+            raise Exception(f"Error HTTP {status_code}: {response.text}")
     except Exception as e:
         raise Exception(f"Error en OpenTopography: {str(e)}")
 
@@ -2487,7 +2502,7 @@ if 'resultados_guardados' in st.session_state:
                 df_dem = pd.DataFrame(sample_points)
                 csv_data = df_dem.to_csv(index=False, encoding='utf-8')
                 csv_filename = f"dem_{cultivo}_{timestamp}.csv"
-    if csv_data:
+    if csv_
         st.download_button(
             label="📊 Descargar CSV de Datos",
             data=csv_data,
