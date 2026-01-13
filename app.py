@@ -2516,13 +2516,15 @@ if 'resultados_guardados' in st.session_state:
                 csv_data = df_dem.to_csv(index=False, encoding='utf-8')
                 csv_filename = f"dem_{cultivo}_{timestamp}.csv"
    if csv_data:
-    st.download_button(
-        label="📊 Descargar CSV de Datos",
-        data=csv_data,
-        file_name=csv_filename,
-        mime="text/csv",
-        key="csv_download"
-    )
+        st.download_button(
+            label="📊 Descargar CSV de Datos",
+            data=csv_data,
+            file_name=csv_filename,
+            mime="text/csv",
+            key="csv_download"
+        )
+    
+    # Botón para limpiar reportes
     if st.session_state.pdf_report or st.session_state.docx_report:
         st.markdown("---")
         if st.button("🗑️ Limpiar Reportes Generados", key="clear_reports"):
@@ -2531,8 +2533,10 @@ if 'resultados_guardados' in st.session_state:
             st.session_state.report_filename_base = ""
             st.success("Reportes limpiados correctamente")
             st.rerun()
+
 else:
     st.info("👈 Por favor, sube un archivo de parcela y ejecuta el análisis para comenzar.")
+
 
 # ===== PIE DE PÁGINA ESTILIZADO =====
 st.markdown("---")
