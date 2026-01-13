@@ -27,13 +27,7 @@ import geojson
 import requests
 import contextily as ctx
 
-# === INICIALIZACIÓN DE GOOGLE EARTH ENGINE ===
-try:
-    import ee
-    ee.Initialize()  # Usa autenticación local (earthengine authenticate)
-except Exception as e:
-    st.warning(f"⚠️ GEE no inicializado: {e}. Algunas funciones pueden fallar.")
-
+# === NO HAY INICIALIZACIÓN DE GEE ===
 warnings.filterwarnings('ignore')
 
 # === INICIALIZACIÓN DE VARIABLES DE SESIÓN PARA REPORTES ===
@@ -427,7 +421,7 @@ st.markdown("""
 <div class="hero-banner">
 <div class="hero-content">
 <h1 class="hero-title">ANALIZADOR MULTI-CULTIVO SATELITAL</h1>
-<p class="hero-subtitle">Potenciado con NASA POWER, GEE y tecnología avanzada para una agricultura tropical de precisión</p>
+<p class="hero-subtitle">Potenciado con NASA POWER y datos SRTM de la NASA para una agricultura tropical de precisión</p>
 </div>
 </div>
 """, unsafe_allow_html=True)
@@ -640,7 +634,6 @@ fecha_inicio = datetime.now() - timedelta(days=30)
 fecha_fin = datetime.now()
 intervalo_curvas = 5.0
 resolucion_dem = 10.0
-fuente_dem = "COPERNICUS GLO-30"  # Nueva variable
 
 # ===== SIDEBAR MEJORADO (INTERFAZ VISUAL) =====
 with st.sidebar:
@@ -686,12 +679,7 @@ with st.sidebar:
         st.subheader("🏔️ Configuración Curvas de Nivel")
         intervalo_curvas = st.slider("Intervalo entre curvas (metros):", 1.0, 20.0, 5.0, 1.0)
         resolucion_dem = st.slider("Resolución DEM (metros):", 5.0, 50.0, 10.0, 5.0)
-        # === NUEVA OPCIÓN: FUENTE DEM ===
-        fuente_dem = st.selectbox(
-            "Fuente DEM:",
-            ["COPERNICUS GLO-30", "SRTM (NASA)"],
-            help="COPERNICUS: 30m global | SRTM: 30m (60°N–56°S)"
-        )
+        st.info("ℹ️ **Fuente DEM:** SRTM de la NASA (30 m)")
     
     st.subheader("📤 Subir Parcela")
     uploaded_file = st.file_uploader("Subir archivo de tu parcela", type=['zip', 'kml', 'kmz'],
@@ -1183,115 +1171,55 @@ def analizar_textura_suelo(gdf, cultivo):
     zonas_gdf['textura_suelo'] = textura_list
     return zonas_gdf
 
-# ===== FUNCIONES DE CURVAS DE NIVEL CON DATOS REALES DE GEE (COPERNICUS + NASA) =====
-
-def obtener_dem_gee(gdf, resolucion_m=30, fuente="COPERNICUS GLO-30"):
+# ===== FUNCIÓN PARA OBTENER DEM DESDE SRTM (NASA) SIN GEE =====
+def obtener_dem_srtm_nasa(gdf, resolucion_m=30):
     """
-    Obtiene DEM real desde COPERNICUS/GLO-30 o SRTM (NASA) vía Google Earth Engine.
-    Devuelve array NumPy de elevación y límites espaciales.
+    Obtiene DEM real desde SRTM (NASA) usando la librería 'elevation'.
+    Solo funciona para latitudes entre 56°S y 60°N (cobertura SRTM).
     """
-    import json
-    import requests
-    import io
+    try:
+        import elevation
+        import rasterio
+        from rasterio.mask import mask
+        import tempfile
 
-    gdf = validar_y_corregir_crs(gdf)
-    geo_json = json.loads(gdf.to_crs('EPSG:4326').to_json())
-    region = geo_json['features'][0]['geometry']
-    geom = ee.Geometry(region)
+        gdf = validar_y_corregir_crs(gdf)
+        bounds = gdf.total_bounds  # minx, miny, maxx, maxy
 
-    if fuente == "COPERNICUS GLO-30":
-        dem = ee.Image('COPERNICUS/DEM/GLO30').select('DEM').clip(geom)
-    else:  # SRTM (NASA)
-        dem = ee.Image('USGS/SRTMGL1_003').clip(geom)
+        # Verificar cobertura de SRTM
+        if bounds[1] < -56 or bounds[3] > 60:
+            raise ValueError("La parcela está fuera de la cobertura de SRTM (-56° a 60° latitud)")
 
-    url = dem.getDownloadURL({
-        'scale': resolucion_m,
-        'crs': 'EPSG:4326',
-        'fileFormat': 'NPY'
-    })
-    response = requests.get(url)
-    if response.status_code != 200:
-        raise Exception(f"Error al descargar DEM ({fuente}) de GEE")
+        with tempfile.NamedTemporaryFile(suffix='.tif', delete=False) as tmp_file:
+            output_path = tmp_file.name
 
-    np_array = np.load(io.BytesIO(response.content))
-    Z = np_array['array']
-    bounds = dem.geometry().bounds().getInfo()['coordinates'][0]
-    minx, miny = bounds[0]
-    maxx, maxy = bounds[2]
+        # Descargar DEM SRTM en la caja de límites
+        elevation.clip(bounds=bounds, output=output_path, product='SRTM1')  # SRTM1 = 30m
 
-    x = np.linspace(minx, maxx, Z.shape[1])
-    y = np.linspace(miny, maxy, Z.shape[0])
-    X, Y = np.meshgrid(x, y)
+        # Leer el raster recortado
+        with rasterio.open(output_path) as src:
+            # Recortar exactamente a la geometría (opcional, mejora precisión)
+            out_image, out_transform = mask(src, gdf.geometry, crop=True)
+            Z = out_image[0]  # solo banda 1
+            Z = Z.astype(np.float32)
+            Z[Z == src.nodata] = np.nan
 
-    return X, Y, Z, (minx, miny, maxx, maxy)
+            # Generar coordenadas
+            height, width = Z.shape
+            cols, rows = np.meshgrid(np.arange(width), np.arange(height))
+            T0 = out_transform * (cols.flatten(), rows.flatten())
+            X = T0[0].reshape(height, width)
+            Y = T0[1].reshape(height, width)
 
+        # Limpiar archivo temporal
+        if os.path.exists(output_path):
+            os.remove(output_path)
 
-def obtener_pendiente_gee(gdf, resolucion_m=30, fuente="COPERNICUS GLO-30"):
-    """Obtiene pendiente real (%) desde GEE usando ee.Terrain.slope."""
-    import json
-    import requests
-    import io
-
-    gdf = validar_y_corregir_crs(gdf)
-    geo_json = json.loads(gdf.to_crs('EPSG:4326').to_json())
-    region = geo_json['features'][0]['geometry']
-    geom = ee.Geometry(region)
-
-    if fuente == "COPERNICUS GLO-30":
-        dem = ee.Image('COPERNICUS/DEM/GLO30').select('DEM').clip(geom)
-    else:  # SRTM (NASA)
-        dem = ee.Image('USGS/SRTMGL1_003').clip(geom)
-
-    slope_img = ee.Terrain.slope(dem)  # en grados → convertimos a %
-
-    url = slope_img.getDownloadURL({
-        'scale': resolucion_m,
-        'crs': 'EPSG:4326',
-        'fileFormat': 'NPY'
-    })
-    response = requests.get(url)
-    if response.status_code != 200:
-        raise Exception(f"Error al descargar pendiente ({fuente}) de GEE")
-
-    np_array = np.load(io.BytesIO(response.content))
-    pendiente_grid = np_array['array']
-    return pendiente_grid
-
-
-def obtener_curvas_nivel_gee(gdf, intervalo=5.0, resolucion_m=30, fuente="COPERNICUS GLO-30"):
-    """Obtiene curvas de nivel reales como GeoDataFrame desde GEE."""
-    import json
-    import requests
-    import geopandas as gpd
-
-    gdf = validar_y_corregir_crs(gdf)
-    geo_json = json.loads(gdf.to_crs('EPSG:4326').to_json())
-    region = geo_json['features'][0]['geometry']
-    geom = ee.Geometry(region)
-
-    if fuente == "COPERNICUS GLO-30":
-        dem = ee.Image('COPERNICUS/DEM/GLO30').select('DEM').clip(geom)
-    else:  # SRTM (NASA)
-        dem = ee.Image('USGS/SRTMGL1_003').clip(geom)
-
-    contours = dem.contourLines(
-        region=geom,
-        scale=resolucion_m,
-        interval=intervalo
-    )
-
-    url = contours.getDownloadURL('geojson')
-    response = requests.get(url)
-    if response.status_code != 200:
-        raise Exception(f"Error al descargar curvas de nivel ({fuente}) de GEE")
-
-    geojson_data = response.json()
-    if not geojson_data['features']:
-        return gpd.GeoDataFrame(), []
-
-    gdf_curvas = gpd.GeoDataFrame.from_features(geojson_data, crs='EPSG:4326')
-    elevaciones = [feat['properties']['elevation'] for feat in geojson_data['features']]
-    return gdf_curvas, elevaciones
+        return X, Y, Z, bounds
+    except ImportError:
+        raise Exception("Librería 'elevation' no instalada. Ejecuta: pip install elevation rasterio")
+    except Exception as e:
+        raise e
 
 # ===== FUNCIONES DE CURVAS DE NIVEL (RESPALDO SINTÉTICO) =====
 def generar_dem_sintetico(gdf, resolucion=10.0):
@@ -1969,7 +1897,7 @@ Estadísticas:
 # ===== FUNCIÓN PRINCIPAL DE ANÁLISIS (CORREGIDA) =====
 def ejecutar_analisis(gdf, nutriente, analisis_tipo, n_divisiones, cultivo,
                       satelite=None, indice=None, fecha_inicio=None,
-                      fecha_fin=None, intervalo_curvas=5.0, resolucion_dem=10.0, fuente_dem="COPERNICUS GLO-30"):
+                      fecha_fin=None, intervalo_curvas=5.0, resolucion_dem=10.0):
     resultados = {
         'exitoso': False,
         'gdf_analizado': None,
@@ -2237,7 +2165,7 @@ if uploaded_file:
                     ax.grid(True, alpha=0.3)
                     st.pyplot(fig)
                 with col2:
-                    st.write("**🎯 CONFIGURACIÓN GEE:**")
+                    st.write("**🎯 CONFIGURACIÓN**")
                     st.write(f"- Cultivo: {ICONOS_CULTIVOS[cultivo]} {cultivo}")
                     st.write(f"- Análisis: {analisis_tipo}")
                     st.write(f"- Zonas: {n_divisiones}")
@@ -2248,7 +2176,7 @@ if uploaded_file:
                     elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
                         st.write(f"- Intervalo curvas: {intervalo_curvas} m")
                         st.write(f"- Resolución DEM: {resolucion_dem} m")
-                        st.write(f"- Fuente DEM: {fuente_dem}")
+                        st.write("ℹ️ **Fuente DEM:** SRTM de la NASA (30 m)")
                 if st.button("🚀 EJECUTAR ANÁLISIS COMPLETO", type="primary"):
                     resultados = None
                     if analisis_tipo in ["FERTILIDAD ACTUAL", "RECOMENDACIONES NPK"]:
@@ -2261,7 +2189,7 @@ if uploaded_file:
                         resultados = ejecutar_analisis(
                             gdf, None, analisis_tipo, n_divisiones,
                             cultivo, None, None, None, None,
-                            intervalo_curvas, resolucion_dem, fuente_dem
+                            intervalo_curvas, resolucion_dem
                         )
                     else:  # ANÁLISIS DE TEXTURA
                         resultados = ejecutar_analisis(
@@ -2284,24 +2212,24 @@ if uploaded_file:
                             'Z': None,
                             'pendiente_grid': None,
                             'gdf_original': gdf if analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL" else None,
-                            'df_power': resultados.get('df_power'),
-                            'fuente_dem': fuente_dem  # Guardar fuente DEM
+                            'df_power': resultados.get('df_power')
                         }
                         # Mostrar resultados según el tipo de análisis
                         if analisis_tipo == "ANÁLISIS DE TEXTURA":
                             mostrar_resultados_textura(resultados['gdf_analizado'], cultivo, resultados['area_total'])
                         elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
                             try:
-                                X, Y, Z, _ = obtener_dem_gee(gdf, resolucion_m=int(resolucion_dem), fuente=fuente_dem)
-                                pendiente_grid = obtener_pendiente_gee(gdf, resolucion_m=int(resolucion_dem), fuente=fuente_dem)
-                                gdf_curvas, elevaciones = obtener_curvas_nivel_gee(gdf, intervalo=int(intervalo_curvas), resolucion_m=int(resolucion_dem), fuente=fuente_dem)
-                                curvas = gdf_curvas.geometry.tolist()
+                                st.info("🌍 Descargando DEM SRTM de la NASA...")
+                                X, Y, Z, _ = obtener_dem_srtm_nasa(gdf, resolucion_m=int(resolucion_dem))
+                                pendiente_grid = calcular_pendiente_simple(X, Y, Z, resolucion_dem)
+                                curvas, elevaciones = generar_curvas_nivel_simple(X, Y, Z, intervalo_curvas, gdf)
                                 st.session_state['resultados_guardados'].update({
                                     'X': X, 'Y': Y, 'Z': Z, 'pendiente_grid': pendiente_grid
                                 })
+                                st.success("✅ DEM SRTM cargado exitosamente")
                                 mostrar_resultados_curvas_nivel(X, Y, Z, pendiente_grid, curvas, elevaciones, gdf, cultivo, resultados['area_total'])
                             except Exception as e:
-                                st.warning(f"⚠️ Error con GEE. Usando DEM sintético como respaldo: {e}")
+                                st.warning(f"⚠️ No se pudo cargar SRTM ({e}). Usando DEM sintético como respaldo.")
                                 X, Y, Z, _ = generar_dem_sintetico(gdf, resolucion_dem)
                                 pendiente_grid = calcular_pendiente_simple(X, Y, Z, resolucion_dem)
                                 curvas, elevaciones = generar_curvas_nivel_simple(X, Y, Z, intervalo_curvas, gdf)
@@ -2587,7 +2515,7 @@ if 'resultados_guardados' in st.session_state:
                 df_dem = pd.DataFrame(sample_points)
                 csv_data = df_dem.to_csv(index=False, encoding='utf-8')
                 csv_filename = f"dem_{cultivo}_{timestamp}.csv"
-    if csv_data:
+    if csv_
         st.download_button(
             label="📊 Descargar CSV de Datos",
             data=csv_data,
@@ -2615,16 +2543,15 @@ with col_footer1:
 - NASA POWER API
 - Sentinel-2 (ESA)
 - Landsat-8 (USGS)
-- Copernicus DEM (ESA)
 - SRTM (NASA)
 """)
 with col_footer2:
     st.markdown("""
 **🛠️ Tecnologías:**
-- Google Earth Engine
 - Streamlit
 - GeoPandas
 - Matplotlib
+- elevation (SRTM)
 """)
 with col_footer3:
     st.markdown("""
