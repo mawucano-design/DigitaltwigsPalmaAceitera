@@ -1163,10 +1163,10 @@ def analizar_textura_suelo(gdf, cultivo):
     zonas_gdf['textura_suelo'] = textura_list
     return zonas_gdf
 
-# ===== NUEVA FUNCIÓN: SRTM DESDE OPENTOPOGRAPHY CON SECRETS =====
+# ===== NUEVA FUNCIÓN: SRTM DESDE OPENTOPOGRAPHY CON CLAVE EN CÓDIGO =====
 def obtener_dem_srtm_opentopography(gdf, resolucion_m=30):
     """
-    Obtiene DEM SRTM 30m desde OpenTopography usando clave API desde st.secrets.
+    Obtiene DEM SRTM 30m desde OpenTopography usando clave API embebida.
     Solo para latitudes entre 56°S y 60°N.
     """
     import requests
@@ -1175,16 +1175,12 @@ def obtener_dem_srtm_opentopography(gdf, resolucion_m=30):
     from rasterio.mask import mask
     import numpy as np
 
-    # 🔑 Obtener clave API de los secrets de Streamlit
-    try:
-        API_KEY = st.secrets["OPENTOPOGRAPHY_API_KEY"]
-    except KeyError:
-        raise Exception("Clave API no encontrada. Configura OPENTOPOGRAPHY_API_KEY en secrets.")
+    # 🔑 Clave API de OpenTopography (¡NO subir a repositorios públicos!)
+    API_KEY = "584795e463e3ab0134642fe0e989735d"
 
     gdf = validar_y_corregir_crs(gdf)
     bounds = gdf.total_bounds  # minx, miny, maxx, maxy
 
-    # Verificar cobertura SRTM
     if bounds[1] < -56 or bounds[3] > 60:
         raise ValueError("Fuera de cobertura SRTM (-56° a 60°)")
 
@@ -1218,7 +1214,7 @@ def obtener_dem_srtm_opentopography(gdf, resolucion_m=30):
     except requests.exceptions.HTTPError as e:
         status_code = response.status_code
         if status_code == 401:
-            raise Exception("Clave API inválida o no autorizada. Verifica tu clave en OpenTopography.")
+            raise Exception("Clave API inválida o no autorizada.")
         elif status_code == 400:
             raise Exception("Solicitud inválida. Verifica los límites de la parcela.")
         else:
@@ -2456,13 +2452,10 @@ if 'resultados_guardados' in st.session_state:
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 key="docx_download"
             )
-   # Exportar CSV según tipo de análisis
     st.markdown("---")
     st.markdown("**Datos en CSV**")
-    
     csv_data = None
     csv_filename = ""
-    
     if analisis_tipo == "FERTILIDAD ACTUAL":
         columnas_mostrar = ['id_zona', 'area_ha', 'npk_actual', 'ndvi', 'ndre', 'ndwi',
                            'materia_organica', 'humedad_suelo']
@@ -2471,7 +2464,6 @@ if 'resultados_guardados' in st.session_state:
             tabla_resultados = gdf_analizado[columnas_mostrar].copy()
             csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
             csv_filename = f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv"
-    
     elif analisis_tipo == "RECOMENDACIONES NPK":
         columnas_mostrar = ['id_zona', 'area_ha', 'valor_recomendado', 'ndvi', 'ndre', 'ndwi']
         columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
@@ -2479,7 +2471,6 @@ if 'resultados_guardados' in st.session_state:
             tabla_resultados = gdf_analizado[columnas_mostrar].copy()
             csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
             csv_filename = f"datos_{cultivo}_{analisis_tipo}_{timestamp}.csv"
-    
     elif analisis_tipo == "ANÁLISIS DE TEXTURA":
         columnas_mostrar = ['id_zona', 'area_ha', 'textura_suelo', 'arena', 'limo', 'arcilla']
         columnas_mostrar = [col for col in columnas_mostrar if col in gdf_analizado.columns]
@@ -2487,8 +2478,27 @@ if 'resultados_guardados' in st.session_state:
             tabla_resultados = gdf_analizado[columnas_mostrar].copy()
             csv_data = tabla_resultados.to_csv(index=False, encoding='utf-8')
             csv_filename = f"texturas_{cultivo}_{timestamp}.csv"
-    
-    if csv_data:
+    elif analisis_tipo == "ANÁLISIS DE CURVAS DE NIVEL":
+        if 'X' in resultados_guardados and resultados_guardados['X'] is not None:
+            X = resultados_guardados['X']
+            Y = resultados_guardados['Y']
+            Z = resultados_guardados['Z']
+            pendiente_grid = resultados_guardados['pendiente_grid']
+            sample_points = []
+            for i in range(0, X.shape[0], 5):
+                for j in range(0, X.shape[1], 5):
+                    if not np.isnan(Z[i, j]):
+                        sample_points.append({
+                            'lat': Y[i, j],
+                            'lon': X[i, j],
+                            'elevacion_m': Z[i, j],
+                            'pendiente_%': pendiente_grid[i, j]
+                        })
+            if sample_points:
+                df_dem = pd.DataFrame(sample_points)
+                csv_data = df_dem.to_csv(index=False, encoding='utf-8')
+                csv_filename = f"dem_{cultivo}_{timestamp}.csv"
+    if csv_
         st.download_button(
             label="📊 Descargar CSV de Datos",
             data=csv_data,
@@ -2496,8 +2506,6 @@ if 'resultados_guardados' in st.session_state:
             mime="text/csv",
             key="csv_download"
         )
-    
-    # Botón para limpiar reportes
     if st.session_state.pdf_report or st.session_state.docx_report:
         st.markdown("---")
         if st.button("🗑️ Limpiar Reportes Generados", key="clear_reports"):
@@ -2506,7 +2514,6 @@ if 'resultados_guardados' in st.session_state:
             st.session_state.report_filename_base = ""
             st.success("Reportes limpiados correctamente")
             st.rerun()
-
 else:
     st.info("👈 Por favor, sube un archivo de parcela y ejecuta el análisis para comenzar.")
 
